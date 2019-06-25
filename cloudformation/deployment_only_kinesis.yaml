@@ -1,0 +1,630 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: QoS - Player with event capture, ingest and processing implementation
+
+Mappings:
+    SourceCodeBucket:
+      General:
+        S3Bucket: 'ganeshji-codedeployus'
+        LambdaUIDeploymentCodePrefix: 'qos/lambda-functions/ui-deployment'
+        RecentVideoViewAppSyncCodePrefix: 'qos/lambda-functions/recentvideoview-appsync-function'
+        TotalVideoViewAppSyncCodePrefix: 'qos/lambda-functions/totalvideoview-appsync-function'
+        ActiveUserAppSyncCodePrefix: 'qos/lambda-functions/activeuser-appsync-function'
+        CloudfrontLogProcessorCodePrefix: 'qos/lambda-functions/cloudfront-logs-processor-function'
+        FastlyLogProcessorCodePrefix: 'qos/lambda-functions/fastly-logs-processor-function'
+        AddPartitionFunctionCodePrefix: 'qos/lambda-functions/add-partition-function'
+        UICodePrefix: 'user-interfaces'
+        Version: 'v1'
+
+Resources:
+  SourceBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          -
+            AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - 'GET'
+              - 'PUT'
+              - 'POST'
+              - 'DELETE'
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3000
+            ExposedHeaders:
+              - 'ETAG'
+              - 'x-amz-cf-id'
+
+  SourceBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    DependsOn:
+      - SourceBucket
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${SourceBucket}/*'
+            Effect: Allow
+            Principal:
+              AWS:
+              - !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CFOriginAccessIdentity}'
+      Bucket: !Ref SourceBucket
+
+  CFOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "${AWS::StackName} - QoS - OAI for player"
+
+  CFDistribution:
+    Type: 'AWS::CloudFront::Distribution'
+    DependsOn:
+      - SourceBucket
+    Properties:
+      DistributionConfig:
+        Origins:
+        - DomainName: !Sub ${SourceBucket}.s3-${AWS::Region}.amazonaws.com
+          Id: myS3Origin
+          S3OriginConfig:
+            OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
+        Enabled: 'true'
+        Comment: !Sub "${AWS::StackName} - distribution for vod website"
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          TargetOriginId: myS3Origin
+          ViewerProtocolPolicy: allow-all
+          MinTTL: '300'
+          MaxTTL: '86400'
+          DefaultTTL: '86400'
+          SmoothStreaming: 'false'
+          Compress: 'true'
+          ForwardedValues:
+            QueryString: 'false'
+            Cookies:
+              Forward: 'none'
+            Headers:
+              - 'Access-Control-Request-Headers'
+              - 'Access-Control-Request-Method'
+              - 'Origin'
+        PriceClass: PriceClass_All
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: 'true'
+        Logging:
+          Bucket: !GetAtt PlayerLogsBucket.DomainName
+          Prefix: 'access_logs/cloudfront/'
+
+  GlueRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action: "*"
+                Resource: "*"
+
+# Create an AWS Glue database
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Sub '${AWS::StackName}_qos_db'
+
+#Create an AWS Glue table for CloudFront logs
+  CDNLogsTable:
+    DependsOn: GlueDatabase
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: 'cdn_logs'
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+          "classification": "json"
+        }
+        PartitionKeys:
+        # Data is partitioned by month
+        - Name: year
+          Type: string
+        - Name: month
+          Type: string
+        - Name: day
+          Type: string
+        - Name: hour
+          Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          Columns:
+          - Name: logdate
+            Type: date
+          - Name: logtime
+            Type: string
+          - Name: location
+            Type: string
+          - Name: bytes
+            Type: bigint
+          - Name: requestip
+            Type: string
+          - Name: method
+            Type: string
+          - Name: host
+            Type: string
+          - Name: uri
+            Type: string
+          - Name: status
+            Type: bigint
+          - Name: referrer
+            Type: string
+          - Name: useragent
+            Type: string
+          - Name: uriquery
+            Type: string
+          - Name: cookie
+            Type: string
+          - Name: resulttype
+            Type: string
+          - Name: requestid
+            Type: string
+          - Name: header
+            Type: string
+          - Name: csprotocol
+            Type: string
+          - Name: csbytes
+            Type: string
+          - Name: timetaken
+            Type: bigint
+          - Name: forwardedfor
+            Type: string
+          - Name: sslprotocol
+            Type: string
+          - Name: sslcipher
+            Type: string
+          - Name: responseresulttype
+            Type: string
+          - Name: protocolversion
+            Type: string
+          - Name: fle-status
+            Type: string
+          - Name: fle-encrypted-fields
+            Type: string
+          - Name: browserfamily
+            Type: string
+          - Name: osfamily
+            Type: string
+          - Name: isbot
+            Type: string
+          - Name: filename
+            Type: string
+          - Name: distribution
+            Type: string
+          - Name: cdn_source
+            Type: string
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          Location: !Join ['',['s3://',!Ref PlayerLogsBucket,'/cdn_logs/']]
+          SerdeInfo:
+            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+
+  CloudFrontLogProcessorFunctionPerm:
+    Type: 'AWS::Lambda::Permission'
+    DependsOn: CloudFrontLogProcessorFunction
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref CloudFrontLogProcessorFunction
+      Principal: 's3.amazonaws.com'
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
+
+  CloudFrontLogProcessorFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+                - "s3.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/service-role/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess"
+      Policies:
+        -
+          PolicyName: "CustomPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:*
+                  Resource: !Sub arn:aws:s3:::${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}*
+                - Effect: Allow
+                  Action:
+                    - firehose:*
+                  Resource: !Sub arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${AWS::StackName}-cdnlogs-stream
+
+  CloudFrontLogProcessorFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: CloudFrontLogProcessorFunctionRole
+    Properties:
+      Runtime: python2.7
+      Handler: prep-data.lambda_handler
+      MemorySize: 128
+      Timeout: 300
+      CodeUri:
+        Bucket: !Join ["-", [!FindInMap [SourceCodeBucket, General, S3Bucket], !Ref "AWS::Region"]]
+        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, CloudfrontLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"cloudfront-logs-processor-function.zip"]]
+      Environment:
+        Variables:
+          KINESIS_FIREHOSE_STREAM: !Sub '${AWS::StackName}-cdnlogs-stream'
+          CDN_SOURCE: 'cloudfront'
+      Role: !GetAtt CloudFrontLogProcessorFunctionRole.Arn
+
+  FastlyLogProcessorFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: CloudFrontLogProcessorFunctionRole
+    Properties:
+      Runtime: python2.7
+      Handler: prep-data.lambda_handler
+      MemorySize: 128
+      Timeout: 300
+      CodeUri:
+        Bucket: !Join ["-", [!FindInMap [SourceCodeBucket, General, S3Bucket], !Ref "AWS::Region"]]
+        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, FastlyLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"fastly-logs-processor-function.zip"]]
+      Environment:
+        Variables:
+          KINESIS_FIREHOSE_STREAM: !Sub '${AWS::StackName}-cdnlogs-stream'
+          CDN_SOURCE: 'cloudfront'
+      Role: !GetAtt CloudFrontLogProcessorFunctionRole.Arn
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-qos-lambda
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: 'QoS-Lambda-exec-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: arn:aws:lambda:*:*:function:*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*:*
+              - Effect: Allow
+                Action:
+                  - cognito-idp:*
+                Resource: arn:aws:cognito-idp:*:*:userpool/*
+
+  PlayerLogsBucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - CloudFrontLogProcessorFunction
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          -
+            Function: !GetAtt CloudFrontLogProcessorFunction.Arn
+            Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  -
+                    Name: prefix
+                    Value: 'access_logs/cloudfront/'
+
+  DeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref 'AWS::AccountId'
+
+  DeliveryPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: DeliveryRole
+    Properties:
+      PolicyName: firehose_delivery_policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:AbortMultipartUpload'
+              - 's3:GetBucketLocation'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+              - 's3:ListBucketMultipartUploads'
+              - 's3:PutObject'
+            Resource:
+                - !Sub 'arn:aws:s3:::${PlayerLogsBucket}'
+                - !Sub 'arn:aws:s3:::${PlayerLogsBucket}/*'
+      Roles:
+        - !Ref DeliveryRole
+
+  PlayerLogsDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    DependsOn:
+      - PlayerLogsBucket
+      - DeliveryRole
+    Properties:
+      DeliveryStreamType: DirectPut
+      DeliveryStreamName: !Sub '${AWS::StackName}-playerlogs-stream'
+      S3DestinationConfiguration:
+        BucketARN: !Sub 'arn:aws:s3:::${PlayerLogsBucket}'
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 1
+        CompressionFormat: UNCOMPRESSED
+        Prefix: player_logs/
+        RoleARN: !GetAtt DeliveryRole.Arn
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: "deliverystream"
+          LogStreamName: "playerlogstream"
+
+  KinesisAnalyticsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: kinesisanalytics.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: Open
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "*"
+                Resource: "*"
+
+  RealtimeAnalytics:
+    Type: AWS::KinesisAnalytics::Application
+    DependsOn:
+      - KinesisAnalyticsRole
+      - PlayerLogsDeliveryStream
+    Properties:
+      ApplicationName: !Sub '${AWS::StackName}-qos-realtimeapp'
+      ApplicationDescription: "QoS Realtime Application"
+      ApplicationCode: "-- CURRENT ACTIVE USERS\nCREATE OR REPLACE STREAM ACTIVE_USERS (TYPE VARCHAR(50), USER_COUNT integer);\n\nCREATE OR REPLACE PUMP \"STREAM_PUMP4\" AS INSERT INTO \"ACTIVE_USERS\" \nSELECT STREAM 'ACTIVE_USERS_1MIN', count(DISTINCT \"user_id\") OVER SLIDING_WINDOW AS LAST_2MIN_SLIDING FROM \"SOURCE_SQL_STREAM_001\" \nWHERE \"MetricType\" = 'STREAM' \nWINDOW SLIDING_WINDOW AS\n( PARTITION BY \"MetricType\" RANGE INTERVAL '2' MINUTE PRECEDING);\n\n--TOTAL VIDEO VIEWS IN TUMBLING WINDOW\nCREATE OR REPLACE STREAM AGGREGATE_VIEWS (VIDEOID VARCHAR(20), VIEWS integer);\n\nCREATE OR REPLACE PUMP STREAM_PUMP2 AS \nINSERT INTO AGGREGATE_VIEWS  \nSELECT STREAM \"video_id\", COUNT(1)\n  FROM (\n    SELECT STREAM DISTINCT rowtime as window_time, \n      \"video_id\",\"user_id\",   \n      STEP((SOURCE_SQL_STREAM_001.rowtime) BY INTERVAL '1' MINUTE) \n      FROM SOURCE_SQL_STREAM_001 WHERE \"MetricType\" = 'PLAY') as distinct_stream \n  GROUP BY \"video_id\", \n      STEP((distinct_stream.window_time) BY INTERVAL '1' MINUTE);\n\n--RECENT VIDEO VIEWS IN SLIDING WINDOW\n\nCREATE OR REPLACE STREAM RECENT_VIEWS (VIDEOID VARCHAR(20), VIEWS integer);\n\nCREATE OR REPLACE PUMP \"STREAM_PUMP1\" AS INSERT INTO \"RECENT_VIEWS\" \nSELECT STREAM \"video_id\", count(*) OVER SLIDING_WINDOW FROM \"SOURCE_SQL_STREAM_001\"\nWHERE \"MetricType\" = 'PLAY' \nWINDOW SLIDING_WINDOW AS \n( PARTITION BY \"video_id\" RANGE INTERVAL '2' MINUTE PRECEDING);\n"
+      Inputs:
+        - NamePrefix: "SOURCE_SQL_STREAM"
+          InputSchema:
+            RecordColumns:
+             - Name: "MetricType"
+               SqlType: "VARCHAR(16)"
+               Mapping: "$.MetricType"
+             - Name: "time_millisecond"
+               SqlType: "VARCHAR(4)"
+               Mapping: "$.time_millisecond"
+             - Name: "seek_from"
+               SqlType: "DOUBLE"
+               Mapping: "$.seek_from"
+             - Name: "seek_to"
+               SqlType: "DOUBLE"
+               Mapping: "$.seek_to"
+             - Name: "rtt"
+               SqlType: "INTEGER"
+               Mapping: "$.rtt"
+             - Name: "connection_type"
+               SqlType: "VARCHAR(10)"
+               Mapping: "$.connection_type"
+             - Name: "at1"
+               SqlType: "DOUBLE"
+               Mapping: "$.at"
+             - Name: "message"
+               SqlType: "VARCHAR(4)"
+               Mapping: "$.message"
+             - Name: "buffer_type"
+               SqlType: "VARCHAR(16)"
+               Mapping: "$.buffer_type"
+             - Name: "cdn_tracking_id"
+               SqlType: "VARCHAR(64)"
+               Mapping: "$.cdn_tracking_id"
+             - Name: "user_id"
+               SqlType: "VARCHAR(64)"
+               Mapping: "$.user_id"
+             - Name: "video_id"
+               SqlType: "VARCHAR(20)"
+               Mapping: "$.video_id"
+             - Name: "COL_TimeStamp"
+               SqlType: "BIGINT"
+               Mapping: "$.TimeStamp"
+             - Name: "isotimestamp"
+               SqlType: "TIMESTAMP"
+               Mapping: "$.isotimestamp"
+             - Name: "package"
+               SqlType: "VARCHAR(4)"
+               Mapping: "$.package"
+             # - Name: "aspect_ratio"
+             #   SqlType: "VARCHAR(4)"
+               Mapping: "$.aspect_ratio"
+             - Name: "resolution"
+               SqlType: "VARCHAR(8)"
+               Mapping: "$.resolution"
+             - Name: "fps"
+               SqlType: "DOUBLE"
+               Mapping: "$.fps"
+             - Name: "avg_bitrate"
+               SqlType: "INTEGER"
+               Mapping: "$.avg_bitrate"
+            RecordFormat:
+              RecordFormatType: "JSON"
+              MappingParameters:
+                JSONMappingParameters:
+                  RecordRowPath: "$"
+          KinesisFirehoseInput:
+            ResourceARN: !GetAtt PlayerLogsDeliveryStream.Arn
+            RoleARN: !GetAtt KinesisAnalyticsRole.Arn
+  #
+  # RealtimeAnalytics:
+  #   Type: AWS::KinesisAnalytics::Application
+  #   DependsOn:
+  #     - KinesisAnalyticsRole
+  #     - PlayerLogsDeliveryStream
+  #   Properties:
+  #     ApplicationName: !Sub '${AWS::StackName}-qos-realtimeapp1'
+  #     ApplicationDescription: "QoS Realtime Application"
+  #     ApplicationCode: "-- CURRENT ACTIVE USERS\nCREATE OR REPLACE STREAM ACTIVE_USERS (TYPE VARCHAR(50), USER_COUNT integer);\n\nCREATE OR REPLACE PUMP \"STREAM_PUMP4\" AS INSERT INTO \"ACTIVE_USERS\" \nSELECT STREAM 'ACTIVE_USERS_1MIN', count(DISTINCT \"user_id\") OVER SLIDING_WINDOW AS LAST_2MIN_SLIDING FROM \"SOURCE_SQL_STREAM_001\" \nWHERE \"MetricType\" = 'STREAM' \nWINDOW SLIDING_WINDOW AS\n( PARTITION BY \"MetricType\" RANGE INTERVAL '2' MINUTE PRECEDING);\n\n--TOTAL VIDEO VIEWS IN TUMBLING WINDOW\nCREATE OR REPLACE STREAM AGGREGATE_VIEWS (VIDEOID VARCHAR(20), VIEWS integer);\n\nCREATE OR REPLACE PUMP STREAM_PUMP2 AS \nINSERT INTO AGGREGATE_VIEWS  \nSELECT STREAM \"video_id\", COUNT(1)\n  FROM (\n    SELECT STREAM DISTINCT rowtime as window_time, \n      \"video_id\",\"user_id\",   \n      STEP((SOURCE_SQL_STREAM_001.rowtime) BY INTERVAL '1' MINUTE) \n      FROM SOURCE_SQL_STREAM_001 WHERE \"MetricType\" = 'PLAY') as distinct_stream \n  GROUP BY \"video_id\", \n      STEP((distinct_stream.window_time) BY INTERVAL '1' MINUTE);\n\n--RECENT VIDEO VIEWS IN SLIDING WINDOW\n\nCREATE OR REPLACE STREAM RECENT_VIEWS (VIDEOID VARCHAR(20), VIEWS integer);\n\nCREATE OR REPLACE PUMP \"STREAM_PUMP1\" AS INSERT INTO \"RECENT_VIEWS\" \nSELECT STREAM \"video_id\", count(*) OVER SLIDING_WINDOW FROM \"SOURCE_SQL_STREAM_001\"\nWHERE \"MetricType\" = 'PLAY' \nWINDOW SLIDING_WINDOW AS\n( PARTITION BY \"video_id\" RANGE INTERVAL '2' MINUTE PRECEDING);\n"
+  #     Inputs:
+  #       - NamePrefix: "SOURCE_SQL_STREAM"
+  #         InputSchema:
+  #           RecordColumns:
+  #            - Name: "MetricType"
+  #              SqlType: "VARCHAR(16)"
+  #              Mapping: "$.MetricType"
+  #            - Name: "time_millisecond"
+  #              SqlType: "VARCHAR(4)"
+  #              Mapping: "$.time_millisecond"
+  #            - Name: "seek_from"
+  #              SqlType: "DOUBLE"
+  #              Mapping: "$.seek_from"
+  #            - Name: "seek_to"
+  #              SqlType: "DOUBLE"
+  #              Mapping: "$.seek_to"
+  #            - Name: "rtt"
+  #              SqlType: "INTEGER"
+  #              Mapping: "$.rtt"
+  #            - Name: "connection_type"
+  #              SqlType: "VARCHAR(10)"
+  #              Mapping: "$.connection_type"
+  #            - Name: "at1"
+  #              SqlType: "DOUBLE"
+  #              Mapping: "$.at"
+  #            - Name: "message"
+  #              SqlType: "VARCHAR(4)"
+  #              Mapping: "$.message"
+  #            - Name: "buffer_type"
+  #              SqlType: "VARCHAR(16)"
+  #              Mapping: "$.buffer_type"
+  #            - Name: "cdn_tracking_id"
+  #              SqlType: "VARCHAR(64)"
+  #              Mapping: "$.cdn_tracking_id"
+  #            - Name: "user_id"
+  #              SqlType: "VARCHAR(64)"
+  #              Mapping: "$.user_id"
+  #            - Name: "video_id"
+  #              SqlType: "VARCHAR(20)"
+  #              Mapping: "$.video_id"
+  #            - Name: "COL_TimeStamp"
+  #              SqlType: "BIGINT"
+  #              Mapping: "$.TimeStamp"
+  #            - Name: "playlist_type"
+  #              SqlType: "VARCHAR(4)"
+  #            - Name: "package"
+  #              SqlType: "VARCHAR(4)"
+  #              Mapping: "$.package"
+  #            - Name: "resolution"
+  #              SqlType: "VARCHAR(8)"
+  #              Mapping: "$.resolution"
+  #            - Name: "fps"
+  #              SqlType: "DOUBLE"
+  #              Mapping: "$.fps"
+  #            - Name: "avg_bitrate"
+  #              SqlType: "INTEGER"
+  #              Mapping: "$.avg_bitrate"
+  #           RecordFormat:
+  #             RecordFormatType: "JSON"
+  #             MappingParameters:
+  #               JSONMappingParameters:
+  #                 RecordRowPath: "$"
+  #         KinesisFirehoseInput:
+  #           ResourceARN: !GetAtt PlayerLogsDeliveryStream.Arn
+  #           RoleARN: !GetAtt KinesisAnalyticsRole.Arn
+
+  CognitoUnAuthorizedRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Policies:
+        - PolicyName: CognitoUnauthorizedPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - 'mobileanalytics:GetEvents'
+                  - 'cognito-sync:*'
+                  - 'firehose:*'
+                Resource: '*'
+                Effect: Allow
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'sts:AssumeRoleWithWebIdentity'
+            Effect: Allow
+            Condition:
+              StringEquals:
+                'cognito-identity.amazonaws.com:aud': !Ref IdentityPool
+              'ForAnyValue:StringLike':
+                'cognito-identity.amazonaws.com:amr': unauthenticated
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+
+  IdentityPool:
+    Type: 'AWS::Cognito::IdentityPool'
+    Properties:
+      IdentityPoolName: !Sub ${AWS::StackName}_qos_identitypool
+      # Cognito Identity Pools do not allow '-' in StackName
+      AllowUnauthenticatedIdentities: true
+
+  IdentityPoolRoleMapping:
+    Type: 'AWS::Cognito::IdentityPoolRoleAttachment'
+    DependsOn:
+      - IdentityPool
+      - CognitoUnAuthorizedRole
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        unauthenticated: !GetAtt CognitoUnAuthorizedRole.Arn

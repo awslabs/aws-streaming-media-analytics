@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  AppSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs8.10
+      Handler: index.handler
+      MemorySize: 128
+      Timeout: 60
+      Environment:
+        Variables:
+          GRAPHQL_ENDPOINT: 'https://6wvgpg3yujfatgg735kmawspsm.appsync-api.us-west-2.amazonaws.com/graphql'
+          API_KEY: 'da2-dw3aodawy5hmncqrog7l3be3ga'

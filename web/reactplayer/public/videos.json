@@ -1,0 +1,6 @@
+[
+  {"url":"sample-videos/hls/BigBuckBunny.m3u8"},
+  {"url":"sample-videos/hls/TearsOfSteel.m3u8"},
+  {"url":"sample-videos/hls/oceans.m3u8"},
+  {"url":"sample-videos/dash/oceans.mpd"}
+]

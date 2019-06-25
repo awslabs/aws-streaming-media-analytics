@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  DeployFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs6.10
+      Handler: index.handler
+      MemorySize: 128
+      Timeout: 60
+      Environment:
+        Variables:
+          SourceBucket: 'mediaqos16-sourcebucket-1al5gphjwmayl'
+          SourceFileBucket: 'ganeshji-codedeployus-us-west-2'
+          SourceUIFilePath: 'qos/lambda-functions/ui-deployment/user-interfaces/v1/player-ui.zip'
+          UIPrefix: 'ui'
+          VideoAssetsPrefix: 'sample-videos'
+          SourceVideoAssetsPrefix: 'qos/sample-videos'
+          GlueJobDefinition: 'qos/etl/v1/player_log_job'

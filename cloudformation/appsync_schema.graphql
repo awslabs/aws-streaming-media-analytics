@@ -1,0 +1,39 @@
+type ActiveUser {
+	id: ID!
+	count: Int!
+}
+
+type Mutation {
+	addVideo(id: ID!, recent_views: Int, total_views: Int): Video!
+	addActiveUser(id: ID!, count: Int!): ActiveUser!
+}
+
+type PaginatedVideos {
+	nextToken: String
+	videos: [Video!]!
+}
+
+type Query {
+	allVideo(count: Int, nextToken: String): PaginatedVideos!
+	getVideo(id: ID!): Video
+	getActiveUser(id: ID!): ActiveUser
+}
+
+type Subscription {
+	newVideo: Video
+		@aws_subscribe(mutations: ["addVideo"])
+	newUser: ActiveUser
+		@aws_subscribe(mutations: ["addActiveUser"])
+}
+
+type Video {
+	id: ID!
+	recent_views: Int
+	total_views: Int
+}
+
+schema {
+	query: Query
+	mutation: Mutation
+	subscription: Subscription
+}

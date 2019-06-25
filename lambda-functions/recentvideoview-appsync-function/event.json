@@ -1,0 +1,41 @@
+{
+  "invocationId": "c0dce7cc-7980-4a8a-b724-a85f3b9bff81",
+  "applicationArn": "arn:aws:kinesisanalytics:us-east-1:444603092185:application/videoviews",
+  "records": [
+    {
+      "recordId": "01574e2f-4c7b-4b4e-b268-13b67534223f",
+      "lambdaDeliveryRecordMetadata": {
+        "retryHint": 0
+      },
+      "data": "eyJWSURFT0lEIjoiQ2FzdGxlQ2wiLCJWSURFT19WSUVXUyI6MX0="
+    },
+    {
+      "recordId": "77aa74cf-83e6-40de-b5b3-323720d5b926",
+      "lambdaDeliveryRecordMetadata": {
+        "retryHint": 0
+      },
+      "data": "eyJWSURFT0lEIjoiQmVhckdpbGwiLCJWSURFT19WSUVXUyI6NX0="
+    },
+    {
+      "recordId": "da042fc3-c2a1-4b57-92f8-4386ddcae8e1",
+      "lambdaDeliveryRecordMetadata": {
+        "retryHint": 0
+      },
+      "data": "eyJWSURFT0lEIjoiVGhlSmV0YnUiLCJWSURFT19WSUVXUyI6Mn0="
+    },
+    {
+      "recordId": "ca0a6b4f-d991-4532-9ad6-29c319cb730e",
+      "lambdaDeliveryRecordMetadata": {
+        "retryHint": 0
+      },
+      "data": "eyJWSURFT0lEIjoiQ2FyV2Fyc1MiLCJWSURFT19WSUVXUyI6Mn0="
+    },
+    {
+      "recordId": "c245ba85-0261-422b-819b-3c885a57517e",
+      "lambdaDeliveryRecordMetadata": {
+        "retryHint": 0
+      },
+      "data": "eyJWSURFT0lEIjoiVG91ckRlRnIiLCJWSURFT19WSUVXUyI6MX0="
+    }
+  ]
+}

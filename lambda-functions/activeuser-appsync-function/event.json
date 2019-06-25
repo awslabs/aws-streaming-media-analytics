@@ -1,0 +1,13 @@
+{
+    "invocationId": "e41a0186-c7ec-4da3-b1ed-1140b9c8a273",
+    "applicationArn": "arn:aws:kinesisanalytics:us-west-2:444603092185:application/mediaqos16-qos-realtimeapp",
+    "records": [
+        {
+            "recordId": "03b860ee-9b12-4474-b4da-c2b9ea13d9eb",
+            "lambdaDeliveryRecordMetadata": {
+                "retryHint": 0
+            },
+            "data": "eyJUWVBFIjoiQUNUSVZFX1VTRVJTXzFNSU4iLCJVU0VSX0NPVU5UIjoxfQ=="
+        }
+    ]
+}

@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: QoS - Player with event capture, ingest and processing implementation
+
+Mappings:
+    SourceCodeBucket:
+      General:
+        S3Bucket: 'ganeshji-codedeployus'
+        LambdaUIDeploymentCodePrefix: 'qos/lambda-functions/ui-deployment'
+        RecentVideoViewAppSyncCodePrefix: 'qos/lambda-functions/recentvideoview-appsync-function'
+        TotalVideoViewAppSyncCodePrefix: 'qos/lambda-functions/totalvideoview-appsync-function'
+        ActiveUserAppSyncCodePrefix: 'qos/lambda-functions/activeuser-appsync-function'
+        CloudfrontLogProcessorCodePrefix: 'qos/lambda-functions/cloudfront-logs-processor-function'
+        FastlyLogProcessorCodePrefix: 'qos/lambda-functions/fastly-logs-processor-function'
+        AddPartitionFunctionCodePrefix: 'qos/lambda-functions/add-partition-function'
+        UICodePrefix: 'user-interfaces'
+        Version: 'v1'
+
+Resources:
+
+  GlueJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Action:
+            - 'sts:AssumeRole'
+          Effect: Allow
+          Principal:
+            Service:
+              - glue.amazonaws.com
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+
+  ETLJob:
+      Type: AWS::Glue::Job
+      Properties:
+        Command:
+          Name: glueetl
+          ScriptLocation: "s3://aws-glue-scripts-444603092185-us-west-2/adminuser/QoS-PlayerLogs"
+        DefaultArguments:
+          "--job-bookmark-option": "job-bookmark-enable"
+          "--GLUE_DB_NAME": "mediaqos"
+        ExecutionProperty:
+          MaxConcurrentRuns: 2
+        MaxRetries: 0
+        Name: qos-etl-job
+        Role: !Ref GlueJobRole

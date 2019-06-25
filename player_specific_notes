@@ -1,0 +1,462 @@
+VideoJS customization details:
+
+Version: 7.2.3
+
+    Metric captured and Player event mapping
+--------------------------------------------------------
+| Metric Type	          |   VideoJS Event              |
+--------------------------------------------------------
+| PLAY	                |   play                       |
+--------------------------------------------------------
+| PAUSE	                |   pause                      |
+--------------------------------------------------------
+| STOP	                |   ended                      |
+--------------------------------------------------------
+| ERROR	                |   error                      |
+--------------------------------------------------------
+| FIRSTFRAME            |	  loadeddata – loadstart     |
+--------------------------------------------------------
+| BUFFER
+  (FirstBuffer)	        |   canplaythrough – loadstart |
+--------------------------------------------------------
+| BUFFER
+  (ScreenFreezedBuffer)	|   canplaythrough – waiting   |
+--------------------------------------------------------
+| STEP	                |   mediachange                |
+--------------------------------------------------------
+| STREAM	              |   timeupdate                 |
+--------------------------------------------------------
+| SEEK	                |   seeked – seeking           |
+--------------------------------------------------------
+
+
+Core player code hacks
+
+Change 1:
+Original File: node_modules/mpd-parser/dist/mpd-parser.es.js
+Override file: overrides/mpd-parser/dist/mpd-parser.es.js
+Version: 0.6.1
+
+Before:
+var formatVideoPlaylist = function formatVideoPlaylist(_ref3) {
+  var _attributes3;
+
+  var attributes = _ref3.attributes,
+      segments = _ref3.segments;
+  var playlist = {
+    attributes: (_attributes3 = {
+      NAME: attributes.id,
+      AUDIO: 'audio',
+      SUBTITLES: 'subs',
+      RESOLUTION: {
+        width: attributes.width,
+        height: attributes.height
+      },
+      CODECS: attributes.codecs,
+      BANDWIDTH: attributes.bandwidth
+    }, _attributes3['PROGRAM-ID'] = 1, _attributes3),
+    uri: '',
+    endList: (attributes.type || 'static') === 'static',
+    timeline: attributes.periodIndex,
+    resolvedUri: '',
+    targetDuration: attributes.duration,
+    segments: segments,
+    mediaSequence: segments.length ? segments[0].number : 1
+  };
+
+  if (attributes.contentProtection) {
+    playlist.contentProtection = attributes.contentProtection;
+  }
+
+  return playlist;
+};
+
+After:
+var formatVideoPlaylist = function formatVideoPlaylist(_ref3) {
+  var _attributes3;
+
+  var attributes = _ref3.attributes,
+      segments = _ref3.segments;
+
+  //in DASH framerate from mpd is specified as 30000/1001
+  var tempFrameRate = attributes.frameRate.split("/");
+  var frameRate = tempFrameRate[0] / tempFrameRate[1];
+  frameRate = frameRate.toFixed(3);
+  // let frameRate = eval(attributes.frameRate).toFixed(3);
+
+  var playlist = {
+    attributes: (_attributes3 = {
+      NAME: attributes.id,
+      AUDIO: 'audio',
+      SUBTITLES: 'subs',
+      RESOLUTION: {
+        width: attributes.width,
+        height: attributes.height
+      },
+      CODECS: attributes.codecs,
+      BANDWIDTH: attributes.bandwidth
+    }, _attributes3['PROGRAM-ID'] = 1, _attributes3['FRAME-RATE'] = frameRate, _attributes3),
+    uri: '',
+    endList: (attributes.type || 'static') === 'static',
+    timeline: attributes.periodIndex,
+    resolvedUri: '',
+    targetDuration: attributes.duration,
+    segments: segments,
+    mediaSequence: segments.length ? segments[0].number : 1
+  };
+
+  if (attributes.contentProtection) {
+    playlist.contentProtection = attributes.contentProtection;
+  }
+
+  return playlist;
+};
+
+Change2:
+
+Original File: node_modules/mpd-parser/dist/mpd-parser.es.js
+Override file: overrides/mpd-parser/dist/mpd-parser.es.js
+Version:
+
+Before:
+var getRequestStats = function getRequestStats(request) {
+  return {
+    bandwidth: request.bandwidth,
+    bytesReceived: request.bytesReceived || 0,
+    roundTripTime: request.roundTripTime || 0
+  };
+};
+
+After:
+var getRequestStats = function getRequestStats(request) {
+  // console.log("In getRequestStats ",request.responseHeaders);
+  return {
+    bandwidth: request.bandwidth,
+    bytesReceived: request.bytesReceived || 0,
+    roundTripTime: request.roundTripTime || 0,
+    //added by jaiganesh. Copy CDN Request ID
+    cdn_request_id: request.responseHeaders["x-amz-cf-id"]
+  };
+};
+
+
+Before:
+
+key: 'segmentRequestFinished_',
+value: function segmentRequestFinished_(error, simpleSegment) {
+  // every request counts as a media request even if it has been aborted
+  // or canceled due to a timeout
+  this.mediaRequests += 1;
+
+  if (simpleSegment.stats) {
+    this.mediaBytesTransferred += simpleSegment.stats.bytesReceived;
+    this.mediaTransferDuration += simpleSegment.stats.roundTripTime;
+  }
+
+  // The request was aborted and the SegmentLoader has already been reset
+  if (!this.pendingSegment_) {
+    this.mediaRequestsAborted += 1;
+    return;
+  }
+
+  // the request was aborted and the SegmentLoader has already started
+  // another request. this can happen when the timeout for an aborted
+  // request triggers due to a limitation in the XHR library
+  // do not count this as any sort of request or we risk double-counting
+  if (simpleSegment.requestId !== this.pendingSegment_.requestId) {
+    return;
+  }
+
+  // an error occurred from the active pendingSegment_ so reset everything
+  if (error) {
+    this.pendingSegment_ = null;
+    this.state = 'READY';
+
+    // the requests were aborted just record the aborted stat and exit
+    // this is not a true error condition and nothing corrective needs
+    // to be done
+    if (error.code === REQUEST_ERRORS.ABORTED) {
+      this.mediaRequestsAborted += 1;
+      return;
+    }
+
+    this.pause();
+
+    // the error is really just that at least one of the requests timed-out
+    // set the bandwidth to a very low value and trigger an ABR switch to
+    // take emergency action
+    if (error.code === REQUEST_ERRORS.TIMEOUT) {
+      this.mediaRequestsTimedout += 1;
+      this.bandwidth = 1;
+      this.roundTrip = NaN;
+      this.trigger('bandwidthupdate');
+      return;
+    }
+
+    // if control-flow has arrived here, then the error is real
+    // emit an error event to blacklist the current playlist
+    this.mediaRequestsErrored += 1;
+    this.error(error);
+    this.trigger('error');
+    return;
+  }
+
+  // the response was a success so set any bandwidth stats the request
+  // generated for ABR purposes
+  this.bandwidth = simpleSegment.stats.bandwidth;
+  this.roundTrip = simpleSegment.stats.roundTripTime;
+
+  // if this request included an initialization segment, save that data
+  // to the initSegment cache
+  if (simpleSegment.map) {
+    simpleSegment.map = this.initSegment(simpleSegment.map, true);
+  }
+
+  this.processSegmentResponse_(simpleSegment);
+}
+
+/**
+ * Move any important data from the simplified segment object
+ * back to the real segment object for future phases
+ *
+ * @private
+ */
+
+}
+
+After:
+key: 'segmentRequestFinished_',
+value: function segmentRequestFinished_(error, simpleSegment) {
+  // every request counts as a media request even if it has been aborted
+  // or canceled due to a timeout
+  this.mediaRequests += 1;
+
+  if (simpleSegment.stats) {
+    this.mediaBytesTransferred += simpleSegment.stats.bytesReceived;
+    this.mediaTransferDuration += simpleSegment.stats.roundTripTime;
+  }
+
+  //added by jaiganesh. Copy CDN Request ID from stats to segment loader
+  this.cdn_request_id = simpleSegment.stats.cdn_request_id;
+  // The request was aborted and the SegmentLoader has already been reset
+  if (!this.pendingSegment_) {
+    this.mediaRequestsAborted += 1;
+    return;
+  }
+
+  // the request was aborted and the SegmentLoader has already started
+  // another request. this can happen when the timeout for an aborted
+  // request triggers due to a limitation in the XHR library
+  // do not count this as any sort of request or we risk double-counting
+  if (simpleSegment.requestId !== this.pendingSegment_.requestId) {
+    return;
+  }
+
+  // an error occurred from the active pendingSegment_ so reset everything
+  if (error) {
+    this.pendingSegment_ = null;
+    this.state = 'READY';
+
+    // the requests were aborted just record the aborted stat and exit
+    // this is not a true error condition and nothing corrective needs
+    // to be done
+    if (error.code === REQUEST_ERRORS.ABORTED) {
+      this.mediaRequestsAborted += 1;
+      return;
+    }
+
+    this.pause();
+
+    // the error is really just that at least one of the requests timed-out
+    // set the bandwidth to a very low value and trigger an ABR switch to
+    // take emergency action
+    if (error.code === REQUEST_ERRORS.TIMEOUT) {
+      this.mediaRequestsTimedout += 1;
+      this.bandwidth = 1;
+      this.roundTrip = NaN;
+      this.trigger('bandwidthupdate');
+      return;
+    }
+
+    // if control-flow has arrived here, then the error is real
+    // emit an error event to blacklist the current playlist
+    this.mediaRequestsErrored += 1;
+    this.error(error);
+    this.trigger('error');
+    return;
+  }
+
+  // the response was a success so set any bandwidth stats the request
+  // generated for ABR purposes
+  this.bandwidth = simpleSegment.stats.bandwidth;
+  this.roundTrip = simpleSegment.stats.roundTripTime;
+
+  // if this request included an initialization segment, save that data
+  // to the initSegment cache
+  if (simpleSegment.map) {
+    simpleSegment.map = this.initSegment(simpleSegment.map, true);
+  }
+
+  this.processSegmentResponse_(simpleSegment);
+}
+
+/**
+ * Move any important data from the simplified segment object
+ * back to the real segment object for future phases
+ *
+ * @private
+ */
+
+},
+
+Before:
+
+key: 'handleUpdateEnd_',
+value: function handleUpdateEnd_() {
+  if (!this.pendingSegment_) {
+    this.state = 'READY';
+    if (!this.paused()) {
+      this.monitorBuffer_();
+    }
+    return;
+  }
+
+  var segmentInfo = this.pendingSegment_;
+  var segment = segmentInfo.segment;
+  var isWalkingForward = this.mediaIndex !== null;
+
+  this.pendingSegment_ = null;
+  this.recordThroughput_(segmentInfo);
+  this.addSegmentMetadataCue_(segmentInfo);
+
+  this.state = 'READY';
+
+  this.mediaIndex = segmentInfo.mediaIndex;
+  this.fetchAtBuffer_ = true;
+  this.currentTimeline_ = segmentInfo.timeline;
+
+  // We must update the syncinfo to recalculate the seekable range before
+  // the following conditional otherwise it may consider this a bad "guess"
+  // and attempt to resync when the post-update seekable window and live
+  // point would mean that this was the perfect segment to fetch
+  this.trigger('syncinfoupdate');
+
+  // If we previously appended a segment that ends more than 3 targetDurations before
+  // the currentTime_ that means that our conservative guess was too conservative.
+  // In that case, reset the loader state so that we try to use any information gained
+  // from the previous request to create a new, more accurate, sync-point.
+  if (segment.end && this.currentTime_() - segment.end > segmentInfo.playlist.targetDuration * 3) {
+    this.resetEverything();
+    return;
+  }
+
+  // Don't do a rendition switch unless we have enough time to get a sync segment
+  // and conservatively guess
+  if (isWalkingForward) {
+    this.trigger('bandwidthupdate');
+  }
+  this.trigger('progress');
+
+  // any time an update finishes and the last segment is in the
+  // buffer, end the stream. this ensures the "ended" event will
+  // fire if playback reaches that point.
+  var isEndOfStream = detectEndOfStream(segmentInfo.playlist, this.mediaSource_, segmentInfo.mediaIndex + 1);
+
+  if (isEndOfStream) {
+    this.endOfStream();
+  }
+
+  if (!this.paused()) {
+    this.monitorBuffer_();
+  }
+}
+
+/**
+ * Records the current throughput of the decrypt, transmux, and append
+ * portion of the semgment pipeline. `throughput.rate` is a the cumulative
+ * moving average of the throughput. `throughput.count` is the number of
+ * data points in the average.
+ *
+ * @private
+ * @param {Object} segmentInfo the object returned by loadSegment
+ */
+
+}
+
+After:
+key: 'handleUpdateEnd_',
+value: function handleUpdateEnd_() {
+  if (!this.pendingSegment_) {
+    this.state = 'READY';
+    if (!this.paused()) {
+      this.monitorBuffer_();
+    }
+    return;
+  }
+
+  var segmentInfo = this.pendingSegment_;
+  var segment = segmentInfo.segment;
+
+  //added by jaiganesh. Copy CDN Request ID and RTT
+  segment.cdn_request_id = this.cdn_request_id;
+  segment.rtt = this.roundTrip;
+
+  var isWalkingForward = this.mediaIndex !== null;
+
+  this.pendingSegment_ = null;
+  this.recordThroughput_(segmentInfo);
+  this.addSegmentMetadataCue_(segmentInfo);
+
+  this.state = 'READY';
+
+  this.mediaIndex = segmentInfo.mediaIndex;
+  this.fetchAtBuffer_ = true;
+  this.currentTimeline_ = segmentInfo.timeline;
+
+  // We must update the syncinfo to recalculate the seekable range before
+  // the following conditional otherwise it may consider this a bad "guess"
+  // and attempt to resync when the post-update seekable window and live
+  // point would mean that this was the perfect segment to fetch
+  this.trigger('syncinfoupdate');
+
+  // If we previously appended a segment that ends more than 3 targetDurations before
+  // the currentTime_ that means that our conservative guess was too conservative.
+  // In that case, reset the loader state so that we try to use any information gained
+  // from the previous request to create a new, more accurate, sync-point.
+  if (segment.end && this.currentTime_() - segment.end > segmentInfo.playlist.targetDuration * 3) {
+    this.resetEverything();
+    return;
+  }
+
+  // Don't do a rendition switch unless we have enough time to get a sync segment
+  // and conservatively guess
+  if (isWalkingForward) {
+    this.trigger('bandwidthupdate');
+  }
+  this.trigger('progress');
+
+  // any time an update finishes and the last segment is in the
+  // buffer, end the stream. this ensures the "ended" event will
+  // fire if playback reaches that point.
+  var isEndOfStream = detectEndOfStream(segmentInfo.playlist, this.mediaSource_, segmentInfo.mediaIndex + 1);
+
+  if (isEndOfStream) {
+    this.endOfStream();
+  }
+
+  if (!this.paused()) {
+    this.monitorBuffer_();
+  }
+}
+
+/**
+ * Records the current throughput of the decrypt, transmux, and append
+ * portion of the semgment pipeline. `throughput.rate` is a the cumulative
+ * moving average of the throughput. `throughput.count` is the number of
+ * data points in the average.
+ *
+ * @private
+ * @param {Object} segmentInfo the object returned by loadSegment
+ */
+
+}

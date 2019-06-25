@@ -1,0 +1,14 @@
+Fastly
+
+1.  Log format settings - %h %l %u %t "%r" %>s %b "%{User-agent}i" %T "%{X-Cache}o" "%{X-Amz-cf-id}o"
+
+2. VCL script set in deliver subroutine
+
+set resp.http.X-Amz-cf-id = uuid.version4();
+
+3. Referrer header set in Content -> Headers
+
+Destination	http.Referer
+Source	"http://secret.qos.media/"
+Ignore if set	No
+Priority	10

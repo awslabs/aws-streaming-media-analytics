@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.0/css/bootstrap-slider.min.css">
+
+    <title>Test Harness / Load Generator</title>
+  </head>
+  <body>
+      <div class="container">
+
+        <div class="jumbotron">
+          <h1>Magical Load Generator for <small>QoS Workshop</small></h1>
+        </div>
+
+        <div class="examples">
+
+            <div>
+          		<h3>Load</h3>
+          		<p>Change the number of events per time period</p>
+          		<div class="well">
+          			<input id="sl1" type="text" data-slider-min="0" data-slider-max="100" data-slider-step="1" data-slider-value="0"/>
+          			<span id="sl1CurrentSliderValLabel">Current Load: <span id="sl1SliderVal">0</span></span>
+          		</div>
+            </div>
+            <br />
+            <div>
+          		<h3>Users</h3>
+          		<p>Change the number of unique user IDs per time period</p>
+          		<div class="well">
+          			<input id="sl2" type="text" data-slider-min="5" data-slider-max="1000" data-slider-step="1" data-slider-value="5"/>
+          			<span id="sl2CurrentSliderValLabel">Current Users: <span id="sl2SliderVal">5</span></span>
+          		</div>
+            </div>
+            <br />
+            <div>
+          		<h3>Buffering</h3>
+          		<p>Change the percentage of buffering events seen</p>
+          		<div class="well">
+          			<input id="sl3" type="text" data-slider-min="2" data-slider-max="100" data-slider-step="1" data-slider-value="2"/>
+          			<span id="sl3CurrentSliderValLabel">Current: <span id="sl3SliderVal">2</span> %</span>
+          		</div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/10.2.0/bootstrap-slider.min.js"></script>
+    <script src="./js/aws-sdk.min.js"></script>
+    <script src="./js/aws-exports.js"></script>
+    <script src="./js/aws-adapter.js"></script>
+    <script src="./js/test-harness.js"></script>
+  </body>
+</html>

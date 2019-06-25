@@ -1,0 +1,17 @@
+{
+    "RequestType": "Create",
+    "ServiceToken": "arn:aws:lambda:us-east-1:444603092185:function:ri1-DeployFunction-18P609MBFL39J",
+    "ResponseURL": "https://cloudformation-custom-resource-response-useast1.s3.amazonaws.com/arn%3Aaws%3Acloudformation%3Aus-east-1%3A444603092185%3Astack/ri1/51df1dc0-d540-11e8-acbb-50fae98a10fe%7CDeployArtifacts%7C71610619-9f2c-4afc-a633-fcdc8bed4d15?AWSAccessKeyId=AKIAJLB4SIS7I2USOKMA&Expires=1540140591&Signature=kIGuskyHRWDhz0ipm1b%2B8s95j%2BI%3D",
+    "StackId": "arn:aws:cloudformation:us-east-1:444603092185:stack/ri1/51df1dc0-d540-11e8-acbb-50fae98a10fe",
+    "RequestId": "71610619-9f2c-4afc-a633-fcdc8bed4d15",
+    "LogicalResourceId": "DeployArtifacts",
+    "ResourceType": "Custom::DeployUI",
+    "ResourceProperties": {
+        "ServiceToken": "arn:aws:lambda:us-east-1:444603092185:function:ri1-DeployFunction-18P609MBFL39J",
+        "GraphQLApiKey": "da2-qoijyzpgyzhprhpgqluprn72mq",
+        "Region": "us-east-1",
+        "IdentityPoolId": "us-east-1:a31b0830-05df-4b44-926a-ec20dcdd28c4",
+        "GraphQLEndpoint": "https://bz5ez5bioncnvmaqh3lfxr4xty.appsync-api.us-east-1.amazonaws.com/graphql",
+        "KinesisStreamName": "ri1-playerlogs-stream"
+    }
+}

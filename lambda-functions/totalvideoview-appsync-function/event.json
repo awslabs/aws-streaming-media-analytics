@@ -1,0 +1,13 @@
+{
+  "invocationId": "c0dce7cc-7980-4a8a-b724-a85f3b9bff81",
+  "applicationArn": "arn:aws:kinesisanalytics:us-east-1:444603092185:application/videoviews",
+  "records": [
+    {
+      "recordId": "7d59cd22-9f44-4419-97e7-62d88bb1d4c0",
+      "lambdaDeliveryRecordMetadata": {
+        "retryHint": 0
+      },
+      "data": "eyJWSURFT0lEIjoiQmlnQnVja0J1bm55IiwiVklFV1MiOjF9"
+    }
+  ]
+}
