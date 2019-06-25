@@ -1,6 +1,6 @@
 # Build an AWS Analytics Solution to Monitor the Video Streaming Experience
 
-### [HTML5 Formatted Version of this Workshop]([LAB2.md](https://aws-streaming-media-analytics-workshop.s3.amazonaws.com/lab1_eifjccfundrutdlnbulhdfcrkiflhjbunfcjiffdlkvf.html))
+### [HTML5 Formatted Version of this Workshop](https://aws-streaming-media-analytics-workshop.s3.amazonaws.com/lab1_eifjccfundrutdlnbulhdfcrkiflhjbunfcjiffdlkvf.html)
 
 Welcome to Build an AWS Analytics Solution to Monitor the Video Streaming Experience!
 
