@@ -19,17 +19,17 @@ Prior to deploying the OTT streaming platform, first ensure you are logged in to
 
 This CloudFormation template deploys an example OTT streaming platform in to your AWS account. The deployed environment includes a static website hosted on S3 with sample videos, Kinesis Data Firehose endpoints to accept and process streaming log data and a real-time log analysis application built on Kinesis Analytics, DynamoDB and AppSync.
 
-To deploy the CloudFormation template. Download the deployment.yaml, and run that on the CloudFormation console. If you want to make changes to the code change the S3Bucket in the mapping section to your own bucket, in the region you want to deploy. 
+1. To deploy the CloudFormation template. Download the deployment.yaml, and run that on the CloudFormation console. If you want to make changes to the code change the S3Bucket in the mapping section to your own bucket, in the region you want to deploy. 
 
-1. The CloudFormation Management Console will load with the template URL pre-filled as a Amazon S3 URL. Click the orange Next button located in the bottom right corner of the console to configure the deployment.
+2. The CloudFormation Management Console will load with the template URL pre-filled as a Amazon S3 URL. Click the orange Next button located in the bottom right corner of the console to configure the deployment.
 
-2. By default we have set a stack name of mediaqos. There is no need to change this and we refer to this name throughout the guide when identifying resources. If you do decide to change the stack name, please ensure you only use lower-case letters and digits, and keep the name under 12 characters. The stack name is used to name resources throughout the workshop. Keep the name handy as you will need it from time to time to locate resources deployed by the stack.
+3. By default we have set a stack name of mediaqos. There is no need to change this and we refer to this name throughout the guide when identifying resources. If you do decide to change the stack name, please ensure you only use lower-case letters and digits, and keep the name under 12 characters. The stack name is used to name resources throughout the workshop. Keep the name handy as you will need it from time to time to locate resources deployed by the stack.
 
-3. Once you have decided on a stack name, click Next to continue.
+4. Once you have decided on a stack name, click Next to continue.
 
-4. On the next step, Configure stack options, leave all values as they are and click Next to continue.
+5. On the next step, Configure stack options, leave all values as they are and click Next to continue.
 
-5. On the Review step
+6. On the Review step
 
 a. Check the three boxes under Capabilities and transforms to acknowledge the template will create IAM resources and leverage transforms.
 
