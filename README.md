@@ -89,6 +89,10 @@ Commands to build and deploy the entire project
 Once the deployment is done you should see the player URL in the Outputs section of the CloudFormation template.
 
 
+## Pricing
+
+Reference the AWS Pricing pages for each service used. 
+
 
 ## JavaScript Video Player Setup
 
