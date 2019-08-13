@@ -1183,7 +1183,7 @@ Resources:
             '--GLUE_DB_NAME': !Ref GlueDatabase
             '--GLUE_PLAYER_LOG_TABLE': !Ref PlayerLogsTable
             '--PLAYER_LOG_BUCKET_PROCESSED_PATH': !Join ["",["s3://",!Ref PlayerLogsBucket,"/watch_time_processed/"]]
-      Schedule: cron(0/5 * * * ? *)
+      Schedule: cron(0 */4 * * ? *)
       Name: !Sub "${AWS::StackName}-WatchTime-GlueTrigger"
 
   WatchTimeLogsTable:
