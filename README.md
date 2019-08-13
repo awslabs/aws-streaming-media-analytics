@@ -19,7 +19,9 @@ Prior to deploying the OTT streaming platform, first ensure you are logged in to
 
 This CloudFormation template deploys an example OTT streaming platform in to your AWS account. The deployed environment includes a static website hosted on S3 with sample videos, Kinesis Data Firehose endpoints to accept and process streaming log data and a real-time log analysis application built on Kinesis Analytics, DynamoDB and AppSync.
 
-1. To deploy the CloudFormation template. Download the deployment.yaml, and run that on the CloudFormation console. If you want to make changes to the code change the S3Bucket in the mapping section to your own bucket, in the region you want to deploy. 
+If you want to make changes to the code change the S3Bucket field in the mapping section of the CloudFormation document to your own bucket. Make sure to put the lambda code in the region you want to deploy. 
+
+1. First download the deployment.yaml under the cloudformation folder of this repo. Open up the CloudFormation console in your aws account and choose upload a template file. 
 
 2. The CloudFormation Management Console will load with the template URL pre-filled as a Amazon S3 URL. Click the orange Next button located in the bottom right corner of the console to configure the deployment.
 
