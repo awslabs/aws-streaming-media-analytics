@@ -38,7 +38,7 @@ a. Check the three boxes under Capabilities and transforms to acknowledge the te
 
 b. Click the Create stack button located at the bottom of the page to deploy the template.
 
-The stack should take around 15-20 minutes to deploy - so we'll keep going with the presentation while it deploys for everyone.
+The stack should take around 15-20 minutes to deploy.
 
 ## Reinvent Workshop
 
