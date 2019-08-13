@@ -13,7 +13,7 @@ AWS Streaming Media Analytics is a serverless end-to-end solution for analyzing 
 
 A workshop walking through the setup process is located here. [Workshop - Reinvent 2018](workshop/WORKSHOP.md)
 
-![alt text](workshop/images/mainphoto.jpg "AWS Streaming Media Analytics")
+![alt text](images/mainphoto.jpg "AWS Streaming Media Analytics")
 
 
 ## How to launch the CloudFormation template
