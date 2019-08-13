@@ -13,6 +13,9 @@ AWS Streaming Media Analytics is a serverless end-to-end solution for analyzing 
 
 A workshop walking through the setup process is located here. [Workshop - Reinvent 2018](workshop/WORKSHOP.md)
 
+![alt text](workshop/images/mainphoto.jpg "AWS Streaming Media Analytics")
+
+
 ## How to launch the CloudFormation template
 
 Prior to deploying the OTT streaming platform, first ensure you are logged in to your AWS account for use in this workshop. To sign in to the AWS Management Console, open https://aws.amazon.com and click on the My Account->AWS Management Console link in the top right corner of the page.
@@ -47,7 +50,7 @@ Here is the workshop that was presented at Reinvent 2018.
 
 This Reinvent Workshop goes into depth showing how to make the QuickSight monitoring graphs. Follow this workshop after you have deployed the CloudFormation template. 
 
-## Solution Architecture 
+## Architecture 
 
 
 ![alt text](workshop/images/arch1.png "Architecture - ingest pipeline")
