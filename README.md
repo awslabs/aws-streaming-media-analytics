@@ -13,7 +13,7 @@ AWS Streaming Media Analytics is a serverless end-to-end solution for analyzing 
 
 A workshop walking through the setup process is located here. [Workshop - Reinvent 2018](workshop/WORKSHOP.md)
 
-![alt text](images/mainphoto.jpg "AWS Streaming Media Analytics")
+![alt text](images/main.png "AWS Streaming Media Analytics")
 
 
 ## How to launch the CloudFormation template
@@ -64,10 +64,8 @@ This Reinvent Workshop goes into depth showing how to make the QuickSight monito
 
 ## How to customize and create your own CloudFormation template.
 
-
-= = Setup Instructions = =
-
-= = To build with Docker && make = =
+Setup Instructions
+To build with Docker && make
 
 Pre-requisite:
 - Install `docker` for your environment as we will use a Docker container to build
@@ -81,7 +79,6 @@ In Makefile:
   - set `profile` to the AWS CLI profile which has necessary permissions to deploy and create all the resources required.
 
 Commands to manage creation/deletion of S3 buckets:
-
 - To create buckets across regions: `make creates3`
 - To delete buckets across regions: `make deletes3`
 
@@ -90,7 +87,6 @@ Commands to build and deploy the entire project
 - `make deploy`
 
 Once the deployment is done you should see the player URL in the Outputs section of the CloudFormation template.
-
 
 ## Pricing
 
