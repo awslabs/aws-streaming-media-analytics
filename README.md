@@ -42,6 +42,14 @@ b. Click the Create stack button located at the bottom of the page to deploy the
 
 The stack should take around 15-20 minutes to deploy.
 
+## Quicksight Update Frequency
+
+By default the Glue Trigger is set for every 4 hours to reduce cost. This can frequency can be increased, but check the AWS Glue console pricing for more details. In my testing AWS Glue cost 0.44 cents per run in this solution. 
+
+The GlueJob that writes player data to S3 for Athena and Quick sight is located within the WatchTimeGlueTrigger. Look for the field that looks like this. 
+```Schedule: cron(0 */4 * * ? *)```
+
+
 ## Reinvent Workshop
 
 Here is the workshop that was presented at Reinvent 2018. 
