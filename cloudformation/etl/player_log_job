@@ -23,7 +23,7 @@ player_logs.printSchema()
 # Print out information about this data
 print "Count:  ", player_logs.count()
 
-player_logs = player_logs.select_fields(['MetricType','TimeStamp','at','duration','year','month','day','video_id','user_id']).resolveChoice(specs = [('at','cast:double')])
+player_logs = player_logs.select_fields(['MetricType','TimeStamp','at','duration','year','month','day','video_id','user_id']).resolveChoice(specs = [('at','cast:double'),('duration','cast:double')])
 
 # player_logs = player_logs.resolveChoice(specs = [('at','cast:double')])
 # player_logs.printSchema()
