@@ -16,11 +16,11 @@ cdn_source = os.environ['CDN_SOURCE']
 delivery_stream = os.environ['KINESIS_FIREHOSE_STREAM']
 
 def lambda_handler(event, context):
-    print("Received event: " + json.dumps(event, indent=2))
+    #print("Received event: " + json.dumps(event, indent=2))
 
     # Get the object from the event and show its content type
     bucket = event['Records'][0]['s3']['bucket']['name']
-    key = urllib.unquote_plus(event['Records'][0]['s3']['object']['key'].encode('utf8'))
+    key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'].encode('utf8'))
     dist_name = key.split("/")[-1].split(".")[0]
     print("Enter into try")
 
@@ -34,7 +34,7 @@ def lambda_handler(event, context):
 
             if not line.startswith("#"):
                 try:
-                    line = line.strip().encode("utf-8", "ignore")
+                    line = line.strip()
                     line = line.replace("<134>","",1)
                     columns = line.split("|")
                     print(len(columns))

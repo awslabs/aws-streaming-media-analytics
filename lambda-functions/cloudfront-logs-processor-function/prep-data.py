@@ -5,6 +5,7 @@ import json
 import urllib
 import boto3
 from gzip import GzipFile
+#import gzip
 from io import BytesIO
 from user_agents import parse
 
@@ -20,7 +21,7 @@ def lambda_handler(event, context):
 
     # Get the object from the event and show its content type
     bucket = event['Records'][0]['s3']['bucket']['name']
-    key = urllib.unquote_plus(event['Records'][0]['s3']['object']['key'].encode('utf8'))
+    key = urllib.parse.unquote_plus(str(event['Records'][0]['s3']['object']['key']))
     dist_name = key.split("/")[-1].split(".")[0]
     print("Enter into try")
 
@@ -34,7 +35,7 @@ def lambda_handler(event, context):
 
             if not line.startswith("#"):
                 try:
-                    line = line.strip().encode("utf-8", "ignore")
+                    line = line.strip()
                     print(line)
                     columns = line.split("\t")
                     ua = parse(columns[10])

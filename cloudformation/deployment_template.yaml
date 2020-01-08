@@ -352,7 +352,7 @@ Resources:
     Type: AWS::Serverless::Function
     DependsOn: LogProcessorFunctionRole
     Properties:
-      Runtime: python2.7
+      Runtime: python3.8
       Handler: prep-data.lambda_handler
       MemorySize: 128
       Timeout: 300
@@ -378,7 +378,7 @@ Resources:
     Type: AWS::Serverless::Function
     DependsOn: LogProcessorFunctionRole
     Properties:
-      Runtime: python2.7
+      Runtime: python3.8
       Handler: prep-data.lambda_handler
       MemorySize: 128
       Timeout: 300
