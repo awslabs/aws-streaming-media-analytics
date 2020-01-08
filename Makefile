@@ -2,16 +2,16 @@
 
 # set bucket name prefix to be created
 # bucket = mediaqos-rodeo
-bucket = ganeshji-codedeployus
-video_assets_bucket = transcoding3-ingest-videos-444603092185-us-east-1
+bucket = aws-streaming-media-analytics-workshop
+video_assets_bucket = aws-streaming-media-analytics-sourcecontent-us-east-1
 # can set multiple AWS regions separated by space
-regions = us-west-2
-version = v2
+regions = ap-southeast-1 ap-southeast-2 ap-northeast-1 ap-northeast-2 ap-south-1 ca-central-1 eu-west-1 eu-west-2 eu-west-3 eu-north-1 sa-east-1 us-east-1 us-east-2 us-west-2
+version = oss-v1
 # set to AWS CLI profile name to use
 # profile = rodeo
-profile = default
+profile = mediaqos-rodeo
 # set Stack Name
-stack_name = mediaqos18
+stack_name = mediaqos
 
 all: image build package copycodeww copytemplateww syncvideos
 
@@ -27,9 +27,11 @@ build:
 
 	docker run --rm --volume ${PWD}/lambda-functions/activeuser-appsync-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install es6-promise@4.1.1 --save; npm install isomorphic-fetch@2.2.1 --save; npm install --only=prod"
 
-	docker run -it --rm --volume ${PWD}/lambda-functions/cloudfront-logs-processor-function:/build amazonlinux:qos /bin/bash -c "pip install --target=. user_agents"
+	mkdir -p lambda-functions/cloudfront-logs-processor-function/package
+	docker run -it --rm --volume ${PWD}/lambda-functions/cloudfront-logs-processor-function:/build amazonlinux:qos /bin/bash -c "pip install --target=./package -r requirements.txt"
 
-	docker run -it --rm --volume ${PWD}/lambda-functions/fastly-logs-processor-function:/build amazonlinux:qos /bin/bash -c "pip install --target=. user_agents"
+	mkdir -p lambda-functions/fastly-logs-processor-function/package
+	docker run -it --rm --volume ${PWD}/lambda-functions/fastly-logs-processor-function:/build amazonlinux:qos /bin/bash -c "pip install --target=./package -r requirements.txt"
 
 	docker run --rm --volume ${PWD}/lambda-functions/add-partition-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install --only=prod"
 
@@ -39,8 +41,8 @@ build:
 
 package:
 	mkdir -p dist && cd lambda-functions/deploy-function && zip -x \.* event.json \*.yaml -FS -q -r ../../dist/deploy-function.zip * && cd ../..
-	mkdir -p dist && cd lambda-functions/cloudfront-logs-processor-function && zip -x \.* event.json \*.yaml -FS -q -r ../../dist/cloudfront-logs-processor-function.zip * && cd ../..
-	mkdir -p dist && cd lambda-functions/fastly-logs-processor-function && zip -x \.* event.json \*.yaml -FS -q -r ../../dist/fastly-logs-processor-function.zip * && cd ../..
+	mkdir -p dist && cd lambda-functions/cloudfront-logs-processor-function/package && zip -x \.* event.json \*.yaml -FS -q -r ../../../dist/cloudfront-logs-processor-function.zip * && cd .. && zip -g ../../dist/cloudfront-logs-processor-function.zip prep-data.py && cd ../..
+	mkdir -p dist && cd lambda-functions/fastly-logs-processor-function/package && zip -x \.* event.json \*.yaml -FS -q -r ../../../dist/fastly-logs-processor-function.zip * && cd .. && zip -g ../../dist/fastly-logs-processor-function.zip prep-data.py && cd ../..
 	mkdir -p dist && cd lambda-functions/recentvideoview-appsync-function && zip -FS -q -r ../../dist/recentvideoview-appsync-function.zip * && cd ../..
 	mkdir -p dist && cd lambda-functions/totalvideoview-appsync-function && zip -FS -q -r ../../dist/totalvideoview-appsync-function.zip * && cd ../..
 	mkdir -p dist && cd lambda-functions/activeuser-appsync-function && zip -FS -q -r ../../dist/activeuser-appsync-function.zip * && cd ../..
