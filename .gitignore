@@ -2,5 +2,8 @@
 node_modules/
 dist/*.zip
 
+# python dependencies
+package/
+
 package-lock.json
 yarn.lock
