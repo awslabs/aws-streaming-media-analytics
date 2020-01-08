@@ -447,7 +447,7 @@ Resources:
       Handler: index.handler
       Role: !GetAtt DeployFunctionRole.Arn
       Timeout: 300
-      Runtime: nodejs8.10
+      Runtime: nodejs10.x
 
   DeployArtifacts:
     Type: 'Custom::DeployUI'
@@ -513,7 +513,7 @@ Resources:
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 300
-      Runtime: nodejs8.10
+      Runtime: nodejs10.x
       Environment:
         Variables:
           GRAPHQL_ENDPOINT: !GetAtt GraphQLApi.GraphQLUrl
@@ -533,7 +533,7 @@ Resources:
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 300
-      Runtime: nodejs8.10
+      Runtime: nodejs10.x
       Environment:
         Variables:
           GRAPHQL_ENDPOINT: !GetAtt GraphQLApi.GraphQLUrl
@@ -553,7 +553,7 @@ Resources:
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 300
-      Runtime: nodejs8.10
+      Runtime: nodejs10.x
       Environment:
         Variables:
           GRAPHQL_ENDPOINT: !GetAtt GraphQLApi.GraphQLUrl
@@ -637,7 +637,7 @@ Resources:
       Handler: index.handler
       Role: !GetAtt AddPartitionFunctionRole.Arn
       Timeout: 900
-      Runtime: nodejs8.10
+      Runtime: nodejs10.x
       Environment:
         Variables:
           ATHENA_RESULT_BUCKET: !Ref PlayerLogsBucket
