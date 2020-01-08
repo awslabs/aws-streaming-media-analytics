@@ -17,7 +17,7 @@ cdn_source = os.environ['CDN_SOURCE']
 delivery_stream = os.environ['KINESIS_FIREHOSE_STREAM']
 
 def lambda_handler(event, context):
-    print("Received event: " + json.dumps(event, indent=2))
+    #print("Received event: " + json.dumps(event, indent=2))
 
     # Get the object from the event and show its content type
     bucket = event['Records'][0]['s3']['bucket']['name']
