@@ -5,7 +5,7 @@ Resources:
   DeployFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Runtime: nodejs6.10
+      Runtime: nodejs10.x
       Handler: index.handler
       MemorySize: 128
       Timeout: 60
