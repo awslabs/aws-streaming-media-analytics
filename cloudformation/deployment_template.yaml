@@ -315,6 +315,7 @@ Resources:
       FunctionName: !Ref CloudFrontLogProcessorFunction
       Principal: 's3.amazonaws.com'
       SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
+      SourceAccount: !Ref AWS::AccountId
 
   LogProcessorFunctionRole:
     Type: "AWS::IAM::Role"
@@ -373,6 +374,7 @@ Resources:
       FunctionName: !Ref FastlyLogProcessorFunction
       Principal: 's3.amazonaws.com'
       SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
+      SourceAccount: !Ref AWS::AccountId
 
   FastlyLogProcessorFunction:
     Type: AWS::Serverless::Function
