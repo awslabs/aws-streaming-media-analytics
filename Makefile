@@ -91,6 +91,9 @@ copytemplateww:
 		aws s3 cp cloudformation/deployment.yaml s3://$(bucket)-$$region/qos/cloudformation/$(version)/ --acl public-read --profile $(profile); \
 		done
 
+template:
+		sed -e "s/BUCKET_NAME/${bucket}/g" -e "s/VERSION/${version}/g" cloudformation/deployment_template.yaml > cloudformation/deployment.yaml
+
 deploy:
 	aws cloudformation deploy --template-file cloudformation/deployment.yaml --stack-name $(stack_name)  --capabilities=CAPABILITY_NAMED_IAM --profile $(profile) --region us-west-2
 
