@@ -16,6 +16,18 @@ Mappings:
         UICodePrefix: 'user-interfaces'
         Version: 'VERSION'
 
+Parameters:
+  DeployFastlyIntegration:
+    Type: String
+    Description: Deploy integration with fast.ly CDN
+    Default: No
+    AllowedValues:
+      - Yes
+      - No
+
+Conditions:
+  DeployFastlyIntegrationCondition: !Equals [!Ref DeployFastlyIntegration, Yes]
+
 Resources:
   SourceBucket:
     Type: 'AWS::S3::Bucket'
@@ -53,14 +65,17 @@ Resources:
             Principal:
               AWS:
               - !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CFOriginAccessIdentity}'
-          - Action:
-              - 's3:GetObject'
-            Resource: !Sub 'arn:aws:s3:::${SourceBucket}/*'
-            Effect: Allow
-            Principal: '*'
-            Condition:
-              StringLike:
-                aws:Referer: "secret.qos.media"
+          - !If 
+            - DeployFastlyIntegrationCondition
+            - Action:
+                - 's3:GetObject'
+              Resource: !Sub 'arn:aws:s3:::${SourceBucket}/*'
+              Effect: Allow
+              Principal: '*'
+              Condition:
+                StringLike:
+                  aws:Referer: "secret.qos.media"
+            - !Ref AWS::NoValue
       Bucket: !Ref SourceBucket
 
   CFOriginAccessIdentity:
@@ -368,6 +383,7 @@ Resources:
 
   FastlyLogProcessorFunctionPerm:
     Type: 'AWS::Lambda::Permission'
+    Condition: DeployFastlyIntegrationCondition
     DependsOn: FastlyLogProcessorFunction
     Properties:
       Action: 'lambda:InvokeFunction'
@@ -378,6 +394,7 @@ Resources:
 
   FastlyLogProcessorFunction:
     Type: AWS::Serverless::Function
+    Condition: DeployFastlyIntegrationCondition
     DependsOn: LogProcessorFunctionRole
     Properties:
       Runtime: python3.8
@@ -676,7 +693,7 @@ Resources:
     Type: AWS::S3::Bucket
     DependsOn:
       - CloudFrontLogProcessorFunction
-      - FastlyLogProcessorFunction
+#      - !If [ DeployFastlyIntegrationCondition, FastlyLogProcessorFunction, !Ref "AWS::NoValue" ]
     Properties:
       BucketName: !Sub ${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
       VersioningConfiguration:
@@ -690,13 +707,16 @@ Resources:
                 Rules:
                   - Name: prefix
                     Value: 'access_logs/cloudfront/'
-          - Function: !GetAtt FastlyLogProcessorFunction.Arn
-            Event: "s3:ObjectCreated:*"
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: 'access_logs/fastly1/'
+          - !If
+            - DeployFastlyIntegrationCondition
+            - Function: !GetAtt FastlyLogProcessorFunction.Arn
+              Event: "s3:ObjectCreated:*"
+              Filter:
+                S3Key:
+                  Rules:
+                    - Name: prefix
+                      Value: 'access_logs/fastly1/'
+            - !Ref AWS::NoValue
 
   DeliveryRole:
     Type: AWS::IAM::Role
