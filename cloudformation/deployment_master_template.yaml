@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: AWS Streaming Media Analytics - Master Deployment Template
+
+Mappings:
+    SourceCodeBucket:
+      General:
+        S3Bucket: 'BUCKET_NAME'
+        LambdaUIDeploymentCodePrefix: 'qos/lambda-functions/ui-deployment'
+        RecentVideoViewAppSyncCodePrefix: 'qos/lambda-functions/recentvideoview-appsync-function'
+        TotalVideoViewAppSyncCodePrefix: 'qos/lambda-functions/totalvideoview-appsync-function'
+        ActiveUserAppSyncCodePrefix: 'qos/lambda-functions/activeuser-appsync-function'
+        CloudfrontLogProcessorCodePrefix: 'qos/lambda-functions/cloudfront-logs-processor-function'
+        FastlyLogProcessorCodePrefix: 'qos/lambda-functions/fastly-logs-processor-function'
+        AddPartitionFunctionCodePrefix: 'qos/lambda-functions/add-partition-function'
+        UICodePrefix: 'user-interfaces'
+        Version: 'VERSION'
+
+Parameters:
+  DeployFastlyIntegration:
+    Type: String
+    Description: Deploy integration with fast.ly CDN
+    Default: No
+    AllowedValues:
+      - Yes
+      - No
+
+  DeployDemoUI:
+    Type: String
+    Description: Deploy Demo UI
+    Default: Yes
+    AllowedValues:
+      - Yes
+      - No
+
+Conditions:
+  DeployFastlyIntegrationCondition: !Equals [!Ref DeployFastlyIntegration, Yes]
+  DeployDemoUICondition: !Equals [!Ref DeployDemoUI, Yes]
+
+Resources:
+  ResourceName:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ResourceDependsOn
+    Properties:
+      Parameters:
+        ResourceParameters
+      TemplateURL:
+        !Join
+        - '/'
+        - - !FindInMap [CFNBucket, AllRegions, BucketUrl]
+          - !Ref BranchName
+          - cfn-generic/ResourceTemplateURL
+
+Outputs:
+  PlayerURL:
+    Value: !Sub https://${CFDistribution.DomainName}/ui/index.html

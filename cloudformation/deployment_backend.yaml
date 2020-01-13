@@ -1,0 +1,809 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: AWS Streaming Media Analytics - Backend Datalake and Processing Environment
+
+Mappings:
+    SourceCodeBucket:
+      General:
+#        S3Bucket: 'BUCKET_NAME'
+        LambdaUIDeploymentCodePrefix: 'qos/lambda-functions/ui-deployment'
+        RecentVideoViewAppSyncCodePrefix: 'qos/lambda-functions/recentvideoview-appsync-function'
+        TotalVideoViewAppSyncCodePrefix: 'qos/lambda-functions/totalvideoview-appsync-function'
+        ActiveUserAppSyncCodePrefix: 'qos/lambda-functions/activeuser-appsync-function'
+        CloudfrontLogProcessorCodePrefix: 'qos/lambda-functions/cloudfront-logs-processor-function'
+        FastlyLogProcessorCodePrefix: 'qos/lambda-functions/fastly-logs-processor-function'
+        AddPartitionFunctionCodePrefix: 'qos/lambda-functions/add-partition-function'
+        UICodePrefix: 'user-interfaces'
+        Version: 'VERSION'
+
+Parameters:
+  pS3Bucket:
+    Type: String
+    Description: S3 Bucket containing source code to lambda functions and demo content.
+
+  DeployFastlyIntegration:
+    Type: String
+    Description: Deploy integration with fast.ly CDN
+    Default: No
+    AllowedValues:
+      - Yes
+      - No
+
+
+Conditions:
+  DeployFastlyIntegrationCondition: !Equals [!Ref DeployFastlyIntegration, Yes]
+
+Resources:
+  PlayerLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Function: !GetAtt CloudFrontLogProcessorFunction.Arn
+            Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: 'access_logs/cloudfront/'
+          - !If
+            - DeployFastlyIntegrationCondition
+            - Function: !GetAtt FastlyLogProcessorFunction.Arn
+              Event: "s3:ObjectCreated:*"
+              Filter:
+                S3Key:
+                  Rules:
+                    - Name: prefix
+                      Value: 'access_logs/fastly1/'
+            - !Ref AWS::NoValue
+
+  DeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref 'AWS::AccountId'
+
+  DeliveryPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: firehose_delivery_policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:AbortMultipartUpload'
+              - 's3:GetBucketLocation'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+              - 's3:ListBucketMultipartUploads'
+              - 's3:PutObject'
+            Resource:
+                - !Sub 'arn:aws:s3:::${PlayerLogsBucket}'
+                - !Sub 'arn:aws:s3:::${PlayerLogsBucket}/*'
+      Roles:
+        - !Ref DeliveryRole
+
+  PlayerLogsDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamType: DirectPut
+      DeliveryStreamName: !Sub '${AWS::StackName}-playerlogs-stream'
+      S3DestinationConfiguration:
+        BucketARN: !Sub 'arn:aws:s3:::${PlayerLogsBucket}'
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 1
+        CompressionFormat: UNCOMPRESSED
+        Prefix: player_logs/
+        RoleARN: !GetAtt DeliveryRole.Arn
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: "deliverystream"
+          LogStreamName: "playerlogstream"
+
+  CDNLogsDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamType: DirectPut
+      DeliveryStreamName: !Sub '${AWS::StackName}-cdnlogs-stream'
+      S3DestinationConfiguration:
+        BucketARN: !Sub arn:aws:s3:::${PlayerLogsBucket}
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 1
+        CompressionFormat: UNCOMPRESSED
+        Prefix: cdn_logs/
+        RoleARN: !GetAtt DeliveryRole.Arn
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: "deliverystream"
+          LogStreamName: "cflogstream"
+
+
+  GlueRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action: "*"
+                Resource: "*"
+
+# Create an AWS Glue database
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Sub '${AWS::StackName}_qos_db'
+
+#Create an AWS Glue table for CloudFront logs
+  CDNLogsTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: 'cdn_logs'
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+          "classification": "json"
+        }
+        PartitionKeys:
+        # Data is partitioned by month
+        - Name: year
+          Type: string
+        - Name: month
+          Type: string
+        - Name: day
+          Type: string
+        - Name: hour
+          Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          Columns:
+          - Name: logdate
+            Type: date
+          - Name: logtime
+            Type: string
+          - Name: location
+            Type: string
+          - Name: bytes
+            Type: bigint
+          - Name: requestip
+            Type: string
+          - Name: method
+            Type: string
+          - Name: host
+            Type: string
+          - Name: uri
+            Type: string
+          - Name: status
+            Type: bigint
+          - Name: referrer
+            Type: string
+          - Name: useragent
+            Type: string
+          - Name: uriquery
+            Type: string
+          - Name: cookie
+            Type: string
+          - Name: resulttype
+            Type: string
+          - Name: requestid
+            Type: string
+          - Name: header
+            Type: string
+          - Name: csprotocol
+            Type: string
+          - Name: csbytes
+            Type: string
+          - Name: timetaken
+            Type: bigint
+          - Name: forwardedfor
+            Type: string
+          - Name: sslprotocol
+            Type: string
+          - Name: sslcipher
+            Type: string
+          - Name: responseresulttype
+            Type: string
+          - Name: protocolversion
+            Type: string
+          - Name: fle-status
+            Type: string
+          - Name: fle-encrypted-fields
+            Type: string
+          - Name: browserfamily
+            Type: string
+          - Name: osfamily
+            Type: string
+          - Name: isbot
+            Type: string
+          - Name: filename
+            Type: string
+          - Name: distribution
+            Type: string
+          - Name: cdn_source
+            Type: string
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          Location: !Join ['',['s3://',!Ref PlayerLogsBucket,'/cdn_logs/']]
+          SerdeInfo:
+            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+
+  PlayerLogsTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: 'player_logs'
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+          "classification": "json"
+        }
+        PartitionKeys:
+        - Name: year
+          Type: string
+        - Name: month
+          Type: string
+        - Name: day
+          Type: string
+        - Name: hour
+          Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          Columns:
+          - Name: MetricType
+            Type: string
+          - Name: user_id
+            Type: string
+          - Name: video_id
+            Type: string
+          - Name: at
+            Type: double
+          - Name: timestamp
+            Type: bigint
+          - Name: playlist_type
+            Type: string
+          - Name: time_millisecond
+            Type: double
+          - Name: duration
+            Type: double
+          - Name: buffer_type
+            Type: string
+          - Name: direction
+            Type: string
+          - Name: package
+            Type: string
+          - Name: resolution
+            Type: string
+          - Name: fps
+            Type: double
+          - Name: bitrate_from
+            Type: int
+          - Name: bitrate_to
+            Type: int
+          - Name: rtt
+            Type: int
+          - Name: avg_bitrate
+            Type: int
+          - Name: cdn_tracking_id
+            Type: string
+          - Name: message
+            Type: string
+          - Name: seek_from
+            Type: double
+          - Name: seek_to
+            Type: double
+          - Name: connection_type
+            Type: string
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          Location: !Join ['',['s3://',!Ref PlayerLogsBucket,'/player_logs/']]
+          SerdeInfo:
+            SerializationLibrary: org.openx.data.jsonserde.JsonSerDe
+
+  #Backend
+  CloudFrontLogProcessorFunctionPerm:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref CloudFrontLogProcessorFunction
+      Principal: 's3.amazonaws.com'
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
+      SourceAccount: !Ref AWS::AccountId
+
+  LogProcessorFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+                - "s3.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/service-role/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+#        - "arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess"
+      Policies:
+        -
+          PolicyName: "CustomPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:*
+                  Resource: !Sub arn:aws:s3:::${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}/*
+                - Effect: Allow
+                  Action:
+                    - firehose:*
+                  Resource: !Sub arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/${AWS::StackName}-cdnlogs-stream
+
+  CloudFrontLogProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.8
+      Handler: prep-data.lambda_handler
+      MemorySize: 128
+      Timeout: 300
+      CodeUri:
+        #Bucket: !Join ["-", [!FindInMap [SourceCodeBucket, General, S3Bucket], !Ref "AWS::Region"]]
+        Bucket: !Join ["-", [!Ref pS3Bucket, !Ref "AWS::Region"]]
+        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, CloudfrontLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"cloudfront-logs-processor-function.zip"]]
+      Environment:
+        Variables:
+          KINESIS_FIREHOSE_STREAM: !Sub '${AWS::StackName}-cdnlogs-stream'
+          CDN_SOURCE: 'cloudfront'
+      Role: !GetAtt LogProcessorFunctionRole.Arn
+
+  FastlyLogProcessorFunctionPerm:
+    Type: 'AWS::Lambda::Permission'
+    Condition: DeployFastlyIntegrationCondition
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref FastlyLogProcessorFunction
+      Principal: 's3.amazonaws.com'
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
+      SourceAccount: !Ref AWS::AccountId
+
+  FastlyLogProcessorFunction:
+    Type: AWS::Serverless::Function
+    Condition: DeployFastlyIntegrationCondition
+    Properties:
+      Runtime: python3.8
+      Handler: prep-data.lambda_handler
+      MemorySize: 128
+      Timeout: 300
+      CodeUri:
+        #Bucket: !Join ["-", [!FindInMap [SourceCodeBucket, General, S3Bucket], !Ref "AWS::Region"]]
+        Bucket: !Join ["-", [!Ref pS3Bucket, !Ref "AWS::Region"]]
+        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, FastlyLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"fastly-logs-processor-function.zip"]]
+      Environment:
+        Variables:
+          KINESIS_FIREHOSE_STREAM: !Sub '${AWS::StackName}-cdnlogs-stream'
+          CDN_SOURCE: 'fastly'
+      Role: !GetAtt LogProcessorFunctionRole.Arn
+
+  CognitoUnAuthorizedRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Policies:
+        - PolicyName: CognitoUnauthorizedPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - 'mobileanalytics:GetEvents'
+                  - 'cognito-sync:*'
+                  - 'firehose:*'
+                  - 'appsync:*'
+                Resource: '*'
+                Effect: Allow
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'sts:AssumeRoleWithWebIdentity'
+            Effect: Allow
+            Condition:
+              StringEquals:
+                'cognito-identity.amazonaws.com:aud': !Ref IdentityPool
+              'ForAnyValue:StringLike':
+                'cognito-identity.amazonaws.com:amr': unauthenticated
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+
+  IdentityPool:
+    Type: 'AWS::Cognito::IdentityPool'
+    Properties:
+      IdentityPoolName: !Sub ${AWS::StackName}_qos_identitypool
+      # Cognito Identity Pools do not allow '-' in StackName
+      AllowUnauthenticatedIdentities: true
+
+  IdentityPoolRoleMapping:
+    Type: 'AWS::Cognito::IdentityPoolRoleAttachment'
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        unauthenticated: !GetAtt CognitoUnAuthorizedRole.Arn
+
+# AppSync backend configurations
+
+  GraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: !Sub ${AWS::StackName}-qos-graphql
+      AuthenticationType: "AWS_IAM"
+
+  Schema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      #DefinitionS3Location: !Join ["",["s3://",!Join ["/", [!Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]],!Join ["/", [!FindInMap ["SourceCodeBucket", "General", "RecentVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "appsync_schema.graphql"]]]]]]
+      DefinitionS3Location: !Join ["",["s3://",!Join ["/", [!Join ["-", [!Ref pS3Bucket, !Ref "AWS::Region"]],!Join ["/", [!FindInMap ["SourceCodeBucket", "General", "RecentVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "appsync_schema.graphql"]]]]]]
+
+
+#  I believe we can remove the apikey now as we use cognito
+#  ApiKey:
+#    Type: AWS::AppSync::ApiKey
+#    Properties:
+#      ApiId: !GetAtt GraphQLApi.ApiId
+#      # Expires: 1544163315
+
+  #Backend
+  VideoViewTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  VideoViewSource:
+    Type: "AWS::AppSync::DataSource"
+    Properties:
+      Type: "AMAZON_DYNAMODB"
+      Description: "DynamoDB source for video views"
+      ServiceRoleArn: !GetAtt AppSyncServiceRole.Arn
+      ApiId: !GetAtt GraphQLApi.ApiId
+      Name: !Sub ${AWS::StackName}_videoview_ds
+      DynamoDBConfig:
+        TableName: !Ref VideoViewTable
+        AwsRegion: !Sub ${AWS::Region}
+
+  ActiveUserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  ActiveUserSource:
+    Type: "AWS::AppSync::DataSource"
+    Properties:
+      Type: "AMAZON_DYNAMODB"
+      Description: "DynamoDB source for Active Users"
+      ServiceRoleArn: !GetAtt AppSyncServiceRole.Arn
+      ApiId: !GetAtt GraphQLApi.ApiId
+      Name: !Sub ${AWS::StackName}_activeuser_ds
+      DynamoDBConfig:
+        TableName: !Ref ActiveUserTable
+        AwsRegion: !Sub ${AWS::Region}
+
+  GetActiveUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: "Query"
+      FieldName: "getActiveUser"
+      DataSourceName: !GetAtt ActiveUserSource.Name
+      RequestMappingTemplate: "{\n    \"version\" : \"2017-02-28\",\n    \"operation\" : \"GetItem\",\n    \"key\" : {\n        \"id\" : { \"S\" : \"${ctx.arguments.id}\" }\n    }\n}"
+      ResponseMappingTemplate: "## Pass back the result from DynamoDB.**\n$util.toJson($ctx.result)"
+
+  AddActiveUserResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: "Mutation"
+      FieldName: "addActiveUser"
+      DataSourceName: !GetAtt ActiveUserSource.Name
+      RequestMappingTemplate: "{\n    \"version\" : \"2017-02-28\",\n    \"operation\" : \"PutItem\",\n    \"key\" : {\n        \"id\" : { \"S\" : \"${context.arguments.id}\" }\n    },\n    \"attributeValues\" : $util.dynamodb.toMapValuesJson($ctx.args)\n}"
+      ResponseMappingTemplate: "## Pass back the result from DynamoDB. **\n$util.toJson($ctx.result)"
+
+#resolvers for VideoViews
+  GetVideoResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: "Query"
+      FieldName: "getVideo"
+      DataSourceName: !GetAtt VideoViewSource.Name
+      RequestMappingTemplate: "{\n    \"version\" : \"2017-02-28\",\n    \"operation\" : \"GetItem\",\n    \"key\" : {\n        \"id\" : { \"S\" : \"${ctx.arguments.id}\" }\n    }\n}"
+      ResponseMappingTemplate: "## Pass back the result from DynamoDB.**\n$util.toJson($ctx.result)"
+
+  AllVideoResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: "Query"
+      FieldName: "allVideo"
+      DataSourceName: !GetAtt VideoViewSource.Name
+      RequestMappingTemplate: "{\n    \"version\" : \"2017-02-28\",\n    \"operation\" : \"Scan\"\n    #if( ${context.arguments.count} )\n        ,\"limit\": \"${context.arguments.count}\"\n    #end\n    #if( ${context.arguments.nextToken} )\n        ,\"nextToken\": \"${context.arguments.nextToken}\"\n    #end\n}"
+      ResponseMappingTemplate: "{\n    \"videos\": $utils.toJson($context.result.items)\n    #if( ${context.result.nextToken} )\n        ,\"nextToken\": \"${context.result.nextToken}\"\n    #end\n}"
+
+  AddVideoResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: "Mutation"
+      FieldName: "addVideo"
+      DataSourceName: !GetAtt VideoViewSource.Name
+      RequestMappingTemplate: "{\n    \"version\" : \"2017-02-28\",\n    \"operation\" : \"UpdateItem\",\n    \"key\" : {\n        \"id\" : { \"S\" : \"${ctx.args.id}\" }\n    },\n    \n    ## Set up variables to hold field names and values \n    #set( $expression = \"\" )   \n    #set( $expNames  = {} )\n    #set( $expValues = {} )\n    \n\t#if( ${ctx.args.recent_views})\n    \t#set( $expression = \"${expression} SET #recent_views = :recent_views\" )\n    \t$!{expNames.put(\"#recent_views\", \"recent_views\")}\n        $!{expValues.put(\":recent_views\", $util.dynamodb.toDynamoDB(${ctx.args.recent_views}))}\n    #end\n\n\t#if( ${ctx.args.total_views})\n    \t#set( $expression = \"${expression} ADD #total_views :total_views\" )\n    \t$!{expNames.put(\"#total_views\", \"total_views\")}\n        $!{expValues.put(\":total_views\", $util.dynamodb.toDynamoDB(${ctx.args.total_views}))}       \n    #end\n\n    ## Finally, write the update expression into the document, along with any expressionNames and expressionValues **\n    \"update\" : {\n        \"expression\" : \"${expression}\",\n        #if( !${expNames.isEmpty()} )\n            \"expressionNames\" : $utils.toJson($expNames),\n        #end\n        #if( !${expValues.isEmpty()} )\n            \"expressionValues\" : $utils.toJson($expValues)\n        #end\n    }\n}"
+      ResponseMappingTemplate: "#if(!$ctx.result.total_views)\n$util.qr($ctx.result.put(\"total_views\",1))\n#end\n#if(!$ctx.result.recent_views)\n$util.qr($ctx.result.put(\"recent_views\",1))\n#end\n$util.toJson($context.result)"
+
+  AppSyncServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-appsync
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: 'qos-appsync-exec-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Join ["",[!GetAtt VideoViewTable.Arn,"*"]]
+                  - !Join ["",[!GetAtt ActiveUserTable.Arn,"*"]]
+
+  GlueJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Action:
+            - 'sts:AssumeRole'
+          Effect: Allow
+          Principal:
+            Service:
+              - glue.amazonaws.com
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+
+  WatchTimeGlueJob:
+      Type: AWS::Glue::Job
+      Properties:
+        Command:
+          Name: glueetl
+          # Can this be made a shared location? 
+          ScriptLocation: !Join ["", ["s3://",!Ref SourceBucket,"/qos/etl/",!FindInMap [SourceCodeBucket, General, Version],"/player_log_job"]]
+        DefaultArguments:
+          "--job-bookmark-option": "job-bookmark-enable"
+          "--GLUE_DB_NAME": !Ref GlueDatabase
+          "--GLUE_PLAYER_LOG_TABLE": !Ref PlayerLogsTable
+          "--PLAYER_LOG_BUCKET_PROCESSED_PATH": !Join ["",["s3://",!Ref PlayerLogsBucket,"/watch_time_processed/"]]
+        ExecutionProperty:
+          MaxConcurrentRuns: 2
+        MaxRetries: 0
+        Name: !Sub "${AWS::StackName}-WatchTimeGlueJob"
+        Role: !Ref GlueJobRole
+
+  WatchTimeGlueTrigger:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Type: 'SCHEDULED'
+      Description: 'ETL Job to calculate Watch Time'
+      Actions:
+        - JobName: !Ref WatchTimeGlueJob
+          Arguments:
+            '--job-bookmark-option': job-bookmark-enable
+            '--GLUE_DB_NAME': !Ref GlueDatabase
+            '--GLUE_PLAYER_LOG_TABLE': !Ref PlayerLogsTable
+            '--PLAYER_LOG_BUCKET_PROCESSED_PATH': !Join ["",["s3://",!Ref PlayerLogsBucket,"/watch_time_processed/"]]
+      Schedule: cron(0/5 * * * ? *)
+      Name: !Sub "${AWS::StackName}-WatchTime-GlueTrigger"
+
+  WatchTimeLogsTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: 'watch_time_logs'
+        TableType: EXTERNAL_TABLE
+        Parameters: {
+          "classification": "parquet",
+          "typeOfData": "file",
+          "compressionType": "none"
+        }
+        PartitionKeys:
+        - Name: partition_key
+          Type: string
+        StorageDescriptor:
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Columns:
+          - Name: MetricType
+            Type: string
+          - Name: user_id
+            Type: string
+          - Name: video_id
+            Type: string
+          - Name: at
+            Type: double
+          - Name: TimeStamp
+            Type: bigint
+          - Name: duration
+            Type: int
+          - Name: year
+            Type: string
+          - Name: month
+            Type: string
+          - Name: day
+            Type: string
+          - Name: watch_percent
+            Type: double
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          Location: !Join ['',['s3://',!Ref PlayerLogsBucket,'/watch_time_processed/']]
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-qos-lambda
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: 'QoS-Lambda-exec-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: arn:aws:lambda:*:*:function:*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*:*
+              - Effect: Allow
+                Action:
+                  - appsync:GraphQL
+                Resource: !Sub ${GraphQLApi.Arn}/*
+
+  RecentVideoViewAppSyncFunction:
+    Type: 'AWS::Lambda::Function'
+#    DependsOn:
+#      - ApiKey
+    Properties:
+      Code:
+        #S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Bucket: !Join ["-", [!Ref pS3Bucket , !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "RecentVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "recentvideoview-appsync-function.zip"]]
+      MemorySize: 512
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          GRAPHQL_ENDPOINT: !GetAtt GraphQLApi.GraphQLUrl
+#          API_KEY: !GetAtt ApiKey.ApiKey
+
+  TotalVideoViewAppSyncFunction:
+    Type: 'AWS::Lambda::Function'
+#    DependsOn:
+#      - ApiKey
+    Properties:
+      Code:
+        #S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Bucket: !Join ["-", [!Ref pS3Bucket , !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "TotalVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "totalvideoview-appsync-function.zip"]]
+      MemorySize: 512
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          GRAPHQL_ENDPOINT: !GetAtt GraphQLApi.GraphQLUrl
+#          API_KEY: !GetAtt ApiKey.ApiKey
+
+  ActiveUserAppSyncFunction:
+    Type: 'AWS::Lambda::Function'
+#    DependsOn:
+#      - ApiKey
+    Properties:
+      Code:
+        #S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Bucket: !Join ["-", [!Ref pS3Bucket , !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "ActiveUserAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "activeuser-appsync-function.zip"]]
+      MemorySize: 512
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          GRAPHQL_ENDPOINT: !GetAtt GraphQLApi.GraphQLUrl
+#          API_KEY: !GetAtt ApiKey.ApiKey
+
+Outputs:
+  KinesisStreamName:
+    Value: !Ref PlayerLogsDeliveryStream
+  IdentityPoolId:
+    Value: !Ref IdentityPool
+  GraphQLEndpoint: 
+    Value: !GetAtt GraphQLApi.GraphQLUrl
+#      KinesisStreamName: !Ref pPlayerLogsDeliveryStream
+#      IdentityPoolId: !Ref pIdentityPool
+#      GraphQLEndpoint: !Ref pGraphQLUrl

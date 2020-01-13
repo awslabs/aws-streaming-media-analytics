@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: AWS Streaming Media Analytics - FrontEnd Demo Environment
+
+Mappings:
+    SourceCodeBucket:
+      General:
+#        S3Bucket: 'BUCKET_NAME'
+        LambdaUIDeploymentCodePrefix: 'qos/lambda-functions/ui-deployment'
+        RecentVideoViewAppSyncCodePrefix: 'qos/lambda-functions/recentvideoview-appsync-function'
+        TotalVideoViewAppSyncCodePrefix: 'qos/lambda-functions/totalvideoview-appsync-function'
+        ActiveUserAppSyncCodePrefix: 'qos/lambda-functions/activeuser-appsync-function'
+        CloudfrontLogProcessorCodePrefix: 'qos/lambda-functions/cloudfront-logs-processor-function'
+        FastlyLogProcessorCodePrefix: 'qos/lambda-functions/fastly-logs-processor-function'
+        AddPartitionFunctionCodePrefix: 'qos/lambda-functions/add-partition-function'
+        UICodePrefix: 'user-interfaces'
+        Version: 'VERSION'
+
+Parameters:
+  DeployFastlyIntegration:
+    Type: String
+    Description: Deploy integration with fast.ly CDN
+    Default: No
+    AllowedValues:
+      - Yes
+      - No
+
+  pS3Bucket:
+    Type: String
+    Description: S3 Bucket containing source code to lambda functions and demo content. Defined in Master.
+
+  pPlayerLogsDeliveryStream:
+    Type: String 
+    Description: Delivery Stream for video player events to be pushed to. Created in Backend Template.
+
+  pIdentityPool:
+    Type: String
+    Description: Cognito Identity Pool used to authorize for access to AppSync APIs and to push to Kinesis. Created in Backend Template.
+
+  pGraphQLUrl:
+    Type: String
+    Description: URL of AppSync Endpoint for interacting with GraphQL API. Defined in Master Template. 
+
+
+Conditions:
+  DeployFastlyIntegrationCondition: !Equals [!Ref DeployFastlyIntegration, Yes]
+
+Resources:
+  SourceBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          -
+            AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - 'GET'
+              - 'PUT'
+              - 'POST'
+              - 'DELETE'
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3000
+            ExposedHeaders:
+              - 'ETAG'
+              - 'x-amz-cf-id'
+
+  SourceBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${SourceBucket}/*'
+            Effect: Allow
+            Principal:
+              AWS:
+              - !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CFOriginAccessIdentity}'
+          - !If 
+            - DeployFastlyIntegrationCondition
+            - Action:
+                - 's3:GetObject'
+              Resource: !Sub 'arn:aws:s3:::${SourceBucket}/*'
+              Effect: Allow
+              Principal: '*'
+              Condition:
+                StringLike:
+                  aws:Referer: "secret.qos.media"
+            - !Ref AWS::NoValue
+      Bucket: !Ref SourceBucket
+
+  CFOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "${AWS::StackName} - QoS - OAI for player"
+
+  CFDistribution:
+    Type: 'AWS::CloudFront::Distribution'
+    DependsOn:
+      - SourceBucket
+    Properties:
+      DistributionConfig:
+        Origins:
+        - DomainName: !Sub ${SourceBucket}.s3-${AWS::Region}.amazonaws.com
+          Id: myS3Origin
+          S3OriginConfig:
+            OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
+        Enabled: true
+        Comment: !Sub "${AWS::StackName} - distribution for vod website"
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          TargetOriginId: myS3Origin
+          ViewerProtocolPolicy: allow-all
+          MinTTL: 300
+          MaxTTL: 86400
+          DefaultTTL: 86400
+          SmoothStreaming: false
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: 'none'
+            Headers:
+              - 'Access-Control-Request-Headers'
+              - 'Access-Control-Request-Method'
+              - 'Origin'
+        PriceClass: PriceClass_All
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        Logging:
+          Bucket: !GetAtt PlayerLogsBucket.DomainName
+          Prefix: 'access_logs/cloudfront/'
+
+  DeployFunctionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Path: /service-role/
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - 'arn:aws:iam::aws:policy/AmazonCognitoPowerUser'
+      Policies:
+        - PolicyName: CustomPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - 's3:*'
+                Resource: !Sub 'arn:aws:s3:::${SourceBucket}/*'
+                Effect: Allow
+              - Action:
+                  - 's3:*'
+                Resource: !Join ["/",
+                [
+                !Join [":",['arn','aws','s3','','',
+                #!Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"],!Ref "AWS::Region"]]
+                !Join ["-", [!Ref pS3Bucket,!Ref "AWS::Region"]]
+                ]],
+                '*']]
+                Effect: Allow
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Action:
+            - 'sts:AssumeRole'
+          Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+              - s3.amazonaws.com
+
+  DeployFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        #S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Bucket: !Join ["-", [!Ref pS3Bucket , !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "LambdaUIDeploymentCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "deploy-function.zip"]]
+      MemorySize: 512
+      Environment:
+        Variables:
+          SourceBucket: !Ref SourceBucket
+          #SourceFileBucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
+          SourceFileBucket: !Join ["-", [!Ref pS3Bucket , !Ref "AWS::Region"]]
+          SourceUIFilePath: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "LambdaUIDeploymentCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "UICodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "player-ui.zip"]]
+          UIPrefix: 'ui'
+          VideoAssetsPrefix: 'sample-videos'
+          SourceVideoAssetsPrefix: 'qos/sample-videos'
+          GlueJobDefinition: !Join ["",["qos/etl/",!FindInMap [SourceCodeBucket, General, Version],"/player_log_job"]]
+      Handler: index.handler
+      Role: !GetAtt DeployFunctionRole.Arn
+      Timeout: 300
+      Runtime: nodejs12.x
+
+  DeployArtifacts:
+    Type: 'Custom::DeployUI'
+    DependsOn:
+      - CFDistribution
+    Properties:
+      KinesisStreamName: !Ref pPlayerLogsDeliveryStream
+      IdentityPoolId: !Ref pIdentityPool
+      GraphQLEndpoint: !Ref pGraphQLUrl
+      #GraphQLApiKey: !GetAtt ApiKey.ApiKey
+      Region: !Sub ${AWS::Region}
+      CloudFrontDomain: !Sub https://${CFDistribution.DomainName}/
+      # CloudFrontDomain: 'test'
+      ServiceToken: !GetAtt DeployFunction.Arn
