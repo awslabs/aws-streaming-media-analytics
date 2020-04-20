@@ -27,6 +27,7 @@ Parameters:
 
 Conditions:
   DeployFastlyIntegrationCondition: !Equals [!Ref DeployFastlyIntegration, Yes]
+  USStandardRegion: !Equals [!Ref "AWS::Region", "us-east-1"]
 
 Resources:
   SourceBucket:
@@ -91,7 +92,7 @@ Resources:
     Properties:
       DistributionConfig:
         Origins:
-        - DomainName: !Sub ${SourceBucket}.s3-${AWS::Region}.amazonaws.com
+        - DomainName: !If [USStandardRegion, !Sub '${SourceBucket}.s3.amazonaws.com', !Sub '${SourceBucket}.s3-${AWS::Region}.amazonaws.com']
           Id: myS3Origin
           S3OriginConfig:
             OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
