@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "es6-promise": "^4.1.1",
+    "es6-promise": "^4.2.8",
     "isomorphic-fetch": "^3.0.0"
   },
   "devDependencies": {},
