@@ -1,19 +1,21 @@
 .PHONY: all build package copycodeww copytemplateww syncvideos creates3 deletes3 deploy
 
-# set bucket name prefix to be created
-# bucket = mediaqos-rodeo
-bucket = aws-streaming-media-analytics-workshop
+# The S3 bucket name prefix that will host the Cloudformation template and deployment artefacts
+bucket = <your-bucket-name-prefix-here>
+# The S3 bucket that hosts sample videos for the demo UI
 video_assets_bucket = aws-streaming-media-analytics-sourcecontent-us-east-1
-# can set multiple AWS regions separated by space
-regions = ap-southeast-1 ap-southeast-2 ap-northeast-1 ap-northeast-2 ap-south-1 ca-central-1 eu-west-1 eu-west-2 eu-west-3 eu-north-1 sa-east-1 us-east-1 us-east-2 us-west-2
-version = oss-v1
-# set to AWS CLI profile name to use
-# profile = rodeo
-profile = mediaqos-rodeo
-# set Stack Name
+# The AWS regions (in standard format, e.g. us-east-1, us-west-2), you wish to build the code and deploy to. Separate by spaces.
+regions = us-east-1 us-west-2
+# A version number that will be included in the path for the files stored in S3
+version = v1
+# The to AWS CLI profile name to use for working with S3
+profile = default
+# The default Stack Name when deploying
 stack_name = mediaqos
 
 all: image build package copycodeww copytemplateww syncvideos
+
+release: package copycodeww copytemplateww
 
 image:
 	docker build --tag amazonlinux:qos .
@@ -21,11 +23,11 @@ image:
 build:
 	docker run --rm --volume ${PWD}/lambda-functions/deploy-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install adm-zip --save; npm install generate-password --save; npm install mime --save; npm install --only=prod"
 
-	docker run --rm --volume ${PWD}/lambda-functions/recentvideoview-appsync-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install es6-promise@4.1.1 --save; npm install isomorphic-fetch@2.2.1 --save; npm install --only=prod"
+	docker run --rm --volume ${PWD}/lambda-functions/recentvideoview-appsync-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install es6-promise@4.2.8 --save; npm install isomorphic-fetch@3.0.0 --save; npm install --only=prod"
 
-	docker run --rm --volume ${PWD}/lambda-functions/totalvideoview-appsync-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install es6-promise@4.1.1 --save; npm install isomorphic-fetch@2.2.1 --save; npm install --only=prod"
+	docker run --rm --volume ${PWD}/lambda-functions/totalvideoview-appsync-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install es6-promise@4.2.8 --save; npm install isomorphic-fetch@3.0.0 --save; npm install --only=prod"
 
-	docker run --rm --volume ${PWD}/lambda-functions/activeuser-appsync-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install es6-promise@4.1.1 --save; npm install isomorphic-fetch@2.2.1 --save; npm install --only=prod"
+	docker run --rm --volume ${PWD}/lambda-functions/activeuser-appsync-function:/build amazonlinux:qos /bin/bash -c "npm init -f -y; npm install es6-promise@4.2.8 --save; npm install isomorphic-fetch@3.0.0 --save; npm install --only=prod"
 
 	mkdir -p lambda-functions/cloudfront-logs-processor-function/package
 	docker run -it --rm --volume ${PWD}/lambda-functions/cloudfront-logs-processor-function:/build amazonlinux:qos /bin/bash -c "pip install --target=./package -r requirements.txt"
