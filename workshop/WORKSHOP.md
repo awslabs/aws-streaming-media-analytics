@@ -57,9 +57,9 @@ This CloudFormation template deploys an example OTT streaming platform in to you
 1. To deploy the CloudFormation template, click on either of the following links, corresponding to the two regions supported by this workshop:
 
 Region	Template Link
-us-east-1 (N. Virginia)	https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-us-east-1/qos/cloudformation/oss-v1.1/deployment.yaml
+us-east-1 (N. Virginia)	https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-us-east-1/qos/cloudformation/oss-v1.1.1/deployment.yaml
 
-us-west-2 (Oregon)	https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-us-west-2/qos/cloudformation/oss-v1.1/deployment.yaml
+us-west-2 (Oregon)	https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-us-west-2/qos/cloudformation/oss-v1.1.1/deployment.yaml
 2. The CloudFormation Management Console will load with the template URL pre-filled as a Amazon S3 URL. Click the orange Next button located in the bottom right corner of the console to configure the deployment.
 
 3. By default we have set a stack name of mediaqos. There is no need to change this and we refer to this name throughout the guide when identifying resources. If you do decide to change the stack name, please ensure you only use lower-case letters and digits, and keep the name under 12 characters. The stack name is used to name resources throughout the workshop. Keep the name handy as you will need it from time to time to locate resources deployed by the stack.
