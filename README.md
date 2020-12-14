@@ -3,7 +3,7 @@
 AWS Streaming Media Analytics is a serverless end-to-end solution for analyzing the video streaming experience
 
 - [AWS Streaming Media Analytics](#AWS-Streaming-Media-Analytics)
-  - [How to launch the CloudFormation template](#How-to-launch-the-CloudFormation-template)
+  - [Launching from a Pre-Built template](#Launching-solution-with-Pre-built-AWS-CloudFormation-Template)
   - [Reinvent Workshop](#Reinvent-Workshop)
   - [Solution Architecture](#Solution-Architecture)
   - [How to customize and create your own CloudFormation template.](#How-to-customize-and-create-your-own-CloudFormation-template)
@@ -11,20 +11,31 @@ AWS Streaming Media Analytics is a serverless end-to-end solution for analyzing 
   - [License Summary](#License-Summary)
 
 
-A workshop walking through the setup process is located here. [Workshop - Reinvent 2018](workshop/WORKSHOP.md)
-
 ![alt text](images/main.png "AWS Streaming Media Analytics")
 
 
-## How to launch the CloudFormation template
+## Launching solution with Pre-built AWS CloudFormation Template
 
-Prior to deploying the OTT streaming platform, first ensure you are logged in to your AWS account for use in this workshop. To sign in to the AWS Management Console, open https://aws.amazon.com and click on the My Account->AWS Management Console link in the top right corner of the page.
+The solution is deployed using an AWS CloudFormation template with AWS Lambda backed custom resources. To deploy the solution, use one of the following CloudFormation templates and follow the instructions below.
+
+| AWS Region | AWS CloudFormation Template URL |
+|:-----------|:----------------------------|
+| ap-northeast-1 (Tokyo) |<a href="https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-ap-northeast-1/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| ap-northeast-2 (Seoul) |<a href="https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-2#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-ap-northeast-2/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| ap-south-1 (Mumbai) |<a href="https://console.aws.amazon.com/cloudformation/home?region=ap-south-1#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-ap-south-1/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| ap-southeast-1 (Singapore) |<a href="https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-1#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-ap-southeast-1/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| ap-southeast-2 (Sydney) |<a href="https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-2#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-ap-southeast-2/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| eu-west-1 (Dublin) |<a href="https://console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-eu-west-1/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| eu-west-2 (London) |<a href="https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-eu-west-2/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| us-east-1 (N. Virginia) |<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-us-east-1/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| us-east-2 (Ohio) |<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-2#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-us-east-2/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
+| us-west-2 (Oregon) |<a href="https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=mediaqos&templateURL=https://s3.amazonaws.com/aws-streaming-media-analytics-workshop-us-west-2/qos/cloudformation/oss-v1.1.1/deployment.yaml" target="_blank">Launch stack</a> |
 
 This CloudFormation template deploys an example OTT streaming platform in to your AWS account. The deployed environment includes a static website hosted on S3 with sample videos, Kinesis Data Firehose endpoints to accept and process streaming log data and a real-time log analysis application built on Kinesis Analytics, DynamoDB and AppSync.
 
 If you want to make changes to the code change the S3Bucket field in the mapping section of the CloudFormation document to your own bucket. Make sure to put the lambda code in the region you want to deploy. 
 
-1. First download the deployment.yaml under the cloudformation folder of this repo. Open up the CloudFormation console in your aws account and choose upload a template file. 
+1. Click on one of the links above to deploy the solution via CloudFormation in your AWS account. 
 
 2. The CloudFormation Management Console will load with the template URL pre-filled as a Amazon S3 URL. Click the orange Next button located in the bottom right corner of the console to configure the deployment.
 
@@ -52,11 +63,7 @@ The GlueJob that writes player data to S3 for Athena and Quick sight is located 
 
 ## Reinvent Workshop
 
-Here is the workshop that was presented at Reinvent 2018. 
-
-[Workshop - Reinvent 2018](workshop/WORKSHOP.md)
-
-This Reinvent Workshop goes into depth showing how to make the QuickSight monitoring graphs. Follow this workshop after you have deployed the CloudFormation template. 
+This solution was originally developed for a workshop at AWS re:Invent 2018. An updated version of the lab guides from this workshop are available at the following link: [AWS Streaming Video Analytics Workshop](https://streamingvideoanalytics.workshop.aws/)
 
 ## Architecture 
 
