@@ -1,6 +1,8 @@
 # build artifacts
 node_modules/
 dist/*.zip
+cloudformation/deployment.yaml
+Makefile
 
 # python dependencies
 package/
@@ -8,4 +10,4 @@ package/
 package-lock.json
 yarn.lock
 
-Makefile
+.DS_Store
