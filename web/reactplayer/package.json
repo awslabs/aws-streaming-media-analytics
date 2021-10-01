@@ -19,7 +19,8 @@
     "react-apollo": "^2.2.4",
     "react-dom": "^16.2.0",
     "react-scripts": "2.0.3",
-    "video.js": "7.14.3"
+    "video.js": "7.14.3",
+    "xhr": "^2.6.0"
   },
   "scripts": {
     "start": "react-scripts start",
