@@ -14,7 +14,7 @@
     "react": "^16.2.0",
     "react-apollo": "^2.2.4",
     "react-dom": "^16.2.0",
-    "react-scripts": "1.1.0",
+    "react-scripts": "2.0.3",
     "video.js": "7.2.3"
   },
   "scripts": {
@@ -22,5 +22,11 @@
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
-  }
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
 }
