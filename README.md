@@ -82,13 +82,16 @@ This solution was originally developed for a workshop at AWS re:Invent 2018. An 
 Setup Instructions
 To build with Docker && make
 
-Pre-requisite:
+Pre-requisites:
 - Install `docker` for your environment as we will use a Docker container to build
 - Install AWS CLI
 - Install yarn
 
+The build and deployment process for this project has been tested on both Mac and Linux using the vscode and Cloud9 IDEs respectively. 
+
 In Makefile:
-  - set `bucket` variable to reflect the S3 bucket name prefix which will be created within a deployment region
+  - set `bucket` variable to reflect the S3 bucket name prefix which will be created within a deployment region. Note the region name will be appended to this prefix.
+  - optionally, set the `s3prefix` variable to a prefix you wish to prepend to the path of all artifacts put into the S3 bucket(s).
   - set `regions` variable to reflect one or more AWS regions you want the code artifacts to be copied for CloudFormation deployment.
   - set `stack_name` for the Stack Name to use in the deployment.
   - set `profile` to the AWS CLI profile which has necessary permissions to deploy and create all the resources required.
