@@ -89,7 +89,9 @@ Pre-requisites:
 
 The build and deployment process for this project has been tested on both Mac and Linux using the vscode and Cloud9 IDEs respectively. 
 
-In Makefile:
+Build Configuration:
+
+Copy the Makefile.sample file to a file named Makefile. In the new file:
   - set `bucket` variable to reflect the S3 bucket name prefix which will be created within a deployment region. Note the region name will be appended to this prefix.
   - optionally, set the `s3prefix` variable to a prefix you wish to prepend to the path of all artifacts put into the S3 bucket(s).
   - set `regions` variable to reflect one or more AWS regions you want the code artifacts to be copied for CloudFormation deployment.
