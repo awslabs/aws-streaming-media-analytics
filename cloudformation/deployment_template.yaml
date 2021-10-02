@@ -16,6 +16,7 @@ Mappings:
         AddPartitionFunctionCodePrefix: 'lambda-functions/add-partition-function'
         UICodePrefix: 'user-interfaces'
         Version: 'VERSION'
+        DeploySourceRegion: 'DEPLOY_SOURCE_REGION'
 
 Parameters:
   DeployFastlyIntegration:
@@ -433,7 +434,7 @@ Resources:
                 Resource: !Join ["/",
                 [
                 !Join [":",['arn','aws','s3','','',
-                !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"],!Ref "AWS::Region"]]
+                !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"],!FindInMap ["SourceCodeBucket", "General", "DeploySourceRegion"]]]
                 ]],
                 '*']]
                 Effect: Allow
@@ -459,12 +460,12 @@ Resources:
       Environment:
         Variables:
           SourceBucket: !Ref SourceBucket
-          SourceFileBucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
+          SourceFileBucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !FindInMap ["SourceCodeBucket", "General", "DeploySourceRegion"]]]
           SourceUIFilePath: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], !FindInMap ["SourceCodeBucket", "General", "LambdaUIDeploymentCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "UICodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "player-ui.zip"]]
           UIPrefix: 'ui'
           VideoAssetsPrefix: 'sample-videos'
-          SourceVideoAssetsPrefix: 'qos/sample-videos'
-          GlueJobDefinition: !Join ["",["qos/etl/",!FindInMap [SourceCodeBucket, General, Version],"/player_log_job"]]
+          SourceVideoAssetsPrefix: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], "sample-videos"]]
+          GlueJobDefinition: !Join ["/",[!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], "etl",!FindInMap [SourceCodeBucket, General, Version],"player_log_job"]]
       Handler: index.handler
       Role: !GetAtt DeployFunctionRole.Arn
       Timeout: 300
