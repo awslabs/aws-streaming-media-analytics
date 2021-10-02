@@ -1,7 +1,9 @@
 .PHONY: all build package copycodeww copytemplateww syncvideos creates3 deletes3 deploy
 
-# The S3 bucket name prefix that will host the Cloudformation template and deployment artefacts
+# The S3 bucket name prefix that will host the Cloudformation template and deployment artifacts
 bucket = <your-bucket-name-prefix-here>
+# The prefix in the s3 bucket that all artifacts are stored under
+s3prefix = qos
 # The S3 bucket that hosts sample videos for the demo UI
 video_assets_bucket = aws-streaming-media-analytics-sourcecontent-us-east-1
 # The AWS regions (in standard format, e.g. us-east-1, us-west-2), you wish to build the code and deploy to. Separate by spaces.
@@ -65,36 +67,36 @@ deletes3:
 
 syncvideos:
 	@for region in $(regions);do \
-		aws s3 sync s3://$(video_assets_bucket)/output s3://$(bucket)-$$region/qos/sample-videos/ --acl public-read --profile $(profile);\
+		aws s3 sync s3://$(video_assets_bucket)/output s3://$(bucket)-$$region/$(s3prefix)/sample-videos/ --acl public-read --profile $(profile);\
 		mkdir -p assets/sample-videos;\
-		aws s3 ls --recursive s3://$(bucket)-$$region/qos/sample-videos/ --profile $(profile) | awk '{print $$4}' > assets/sample-videos/video-manifest.txt; \
-		aws s3 cp assets/sample-videos/video-manifest.txt s3://$(bucket)-$$region/qos/sample-videos/ --acl public-read --profile $(profile);\
+		aws s3 ls --recursive s3://$(bucket)-$$region/$(s3prefix)/sample-videos/ --profile $(profile) | awk '{print $$4}' > assets/sample-videos/video-manifest.txt; \
+		aws s3 cp assets/sample-videos/video-manifest.txt s3://$(bucket)-$$region/$(s3prefix)/sample-videos/ --acl public-read --profile $(profile);\
 	done
 
 copycodeww:
 	@for region in $(regions) ; do \
 	  echo $$region; echo $(bucket);\
-		aws s3 cp dist/deploy-function.zip s3://$(bucket)-$$region/qos/lambda-functions/ui-deployment/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp dist/player-ui.zip s3://$(bucket)-$$region/qos/lambda-functions/ui-deployment/user-interfaces/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp dist/cloudfront-logs-processor-function.zip s3://$(bucket)-$$region/qos/lambda-functions/cloudfront-logs-processor-function/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp dist/fastly-logs-processor-function.zip s3://$(bucket)-$$region/qos/lambda-functions/fastly-logs-processor-function/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp dist/recentvideoview-appsync-function.zip s3://$(bucket)-$$region/qos/lambda-functions/recentvideoview-appsync-function/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp dist/totalvideoview-appsync-function.zip s3://$(bucket)-$$region/qos/lambda-functions/totalvideoview-appsync-function/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp dist/activeuser-appsync-function.zip s3://$(bucket)-$$region/qos/lambda-functions/activeuser-appsync-function/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp dist/add-partition-function.zip s3://$(bucket)-$$region/qos/lambda-functions/add-partition-function/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp cloudformation/appsync_schema.graphql s3://$(bucket)-$$region/qos/lambda-functions/recentvideoview-appsync-function/$(version)/ --acl public-read --profile $(profile); \
-		aws s3 cp cloudformation/etl/player_log_job s3://$(bucket)-$$region/qos/etl/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/deploy-function.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/ui-deployment/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/player-ui.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/ui-deployment/user-interfaces/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/cloudfront-logs-processor-function.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/cloudfront-logs-processor-function/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/fastly-logs-processor-function.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/fastly-logs-processor-function/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/recentvideoview-appsync-function.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/recentvideoview-appsync-function/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/totalvideoview-appsync-function.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/totalvideoview-appsync-function/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/activeuser-appsync-function.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/activeuser-appsync-function/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp dist/add-partition-function.zip s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/add-partition-function/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp cloudformation/appsync_schema.graphql s3://$(bucket)-$$region/$(s3prefix)/lambda-functions/recentvideoview-appsync-function/$(version)/ --acl public-read --profile $(profile); \
+		aws s3 cp cloudformation/etl/player_log_job s3://$(bucket)-$$region/$(s3prefix)/etl/$(version)/ --acl public-read --profile $(profile); \
 		done
 
 copytemplateww:
 		@for region in $(regions);do \
 		echo $$region;	echo $(bucket); \
-		sed -e "s/BUCKET_NAME/${bucket}/g" -e "s/VERSION/${version}/g" cloudformation/deployment_template.yaml > cloudformation/deployment.yaml; \
-		aws s3 cp cloudformation/deployment.yaml s3://$(bucket)-$$region/qos/cloudformation/$(version)/ --acl public-read --profile $(profile); \
+		sed -e "s/BUCKET_NAME/${bucket}/g" -e "s/VERSION/${version}/g" -e "s/S3_PREFIX/${s3prefix}/g" cloudformation/deployment_template.yaml > cloudformation/deployment.yaml; \
+		aws s3 cp cloudformation/deployment.yaml s3://$(bucket)-$$region/$(s3prefix)/cloudformation/$(version)/ --acl public-read --profile $(profile); \
 		done
 
 template:
-		sed -e "s/BUCKET_NAME/${bucket}/g" -e "s/VERSION/${version}/g" cloudformation/deployment_template.yaml > cloudformation/deployment.yaml
+		sed -e "s/BUCKET_NAME/${bucket}/g" -e "s/VERSION/${version}/g" -e "s/S3_PREFIX/${s3prefix}/g" cloudformation/deployment_template.yaml > cloudformation/deployment.yaml
 
 deploy:
 	aws cloudformation deploy --template-file cloudformation/deployment.yaml --stack-name $(stack_name)  --capabilities=CAPABILITY_NAMED_IAM --profile $(profile) --region us-west-2
