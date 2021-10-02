@@ -6,13 +6,14 @@ Mappings:
     SourceCodeBucket:
       General:
         S3Bucket: 'BUCKET_NAME'
-        LambdaUIDeploymentCodePrefix: 'qos/lambda-functions/ui-deployment'
-        RecentVideoViewAppSyncCodePrefix: 'qos/lambda-functions/recentvideoview-appsync-function'
-        TotalVideoViewAppSyncCodePrefix: 'qos/lambda-functions/totalvideoview-appsync-function'
-        ActiveUserAppSyncCodePrefix: 'qos/lambda-functions/activeuser-appsync-function'
-        CloudfrontLogProcessorCodePrefix: 'qos/lambda-functions/cloudfront-logs-processor-function'
-        FastlyLogProcessorCodePrefix: 'qos/lambda-functions/fastly-logs-processor-function'
-        AddPartitionFunctionCodePrefix: 'qos/lambda-functions/add-partition-function'
+        S3Prefix: 'S3_PREFIX'
+        LambdaUIDeploymentCodePrefix: 'lambda-functions/ui-deployment'
+        RecentVideoViewAppSyncCodePrefix: 'lambda-functions/recentvideoview-appsync-function'
+        TotalVideoViewAppSyncCodePrefix: 'lambda-functions/totalvideoview-appsync-function'
+        ActiveUserAppSyncCodePrefix: 'lambda-functions/activeuser-appsync-function'
+        CloudfrontLogProcessorCodePrefix: 'lambda-functions/cloudfront-logs-processor-function'
+        FastlyLogProcessorCodePrefix: 'lambda-functions/fastly-logs-processor-function'
+        AddPartitionFunctionCodePrefix: 'lambda-functions/add-partition-function'
         UICodePrefix: 'user-interfaces'
         Version: 'VERSION'
 
@@ -375,7 +376,7 @@ Resources:
       Timeout: 300
       CodeUri:
         Bucket: !Join ["-", [!FindInMap [SourceCodeBucket, General, S3Bucket], !Ref "AWS::Region"]]
-        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, CloudfrontLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"cloudfront-logs-processor-function.zip"]]
+        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, S3Prefix],!FindInMap [SourceCodeBucket, General, CloudfrontLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"cloudfront-logs-processor-function.zip"]]
       Environment:
         Variables:
           KINESIS_FIREHOSE_STREAM: !Sub '${AWS::StackName}-cdnlogs-stream'
@@ -404,7 +405,7 @@ Resources:
       Timeout: 300
       CodeUri:
         Bucket: !Join ["-", [!FindInMap [SourceCodeBucket, General, S3Bucket], !Ref "AWS::Region"]]
-        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, FastlyLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"fastly-logs-processor-function.zip"]]
+        Key: !Join ["/",[!FindInMap [SourceCodeBucket, General, S3Prefix],!FindInMap [SourceCodeBucket, General, FastlyLogProcessorCodePrefix],!FindInMap [SourceCodeBucket, General, Version],"fastly-logs-processor-function.zip"]]
       Environment:
         Variables:
           KINESIS_FIREHOSE_STREAM: !Sub '${AWS::StackName}-cdnlogs-stream'
@@ -453,13 +454,13 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "LambdaUIDeploymentCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "deploy-function.zip"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], !FindInMap ["SourceCodeBucket", "General", "LambdaUIDeploymentCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "deploy-function.zip"]]
       MemorySize: 512
       Environment:
         Variables:
           SourceBucket: !Ref SourceBucket
           SourceFileBucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
-          SourceUIFilePath: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "LambdaUIDeploymentCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "UICodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "player-ui.zip"]]
+          SourceUIFilePath: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], !FindInMap ["SourceCodeBucket", "General", "LambdaUIDeploymentCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "UICodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "player-ui.zip"]]
           UIPrefix: 'ui'
           VideoAssetsPrefix: 'sample-videos'
           SourceVideoAssetsPrefix: 'qos/sample-videos'
@@ -528,7 +529,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "RecentVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "recentvideoview-appsync-function.zip"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], !FindInMap ["SourceCodeBucket", "General", "RecentVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "recentvideoview-appsync-function.zip"]]
       MemorySize: 512
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
@@ -548,7 +549,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "TotalVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "totalvideoview-appsync-function.zip"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], !FindInMap ["SourceCodeBucket", "General", "TotalVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "totalvideoview-appsync-function.zip"]]
       MemorySize: 512
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
@@ -568,7 +569,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "ActiveUserAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "activeuser-appsync-function.zip"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], !FindInMap ["SourceCodeBucket", "General", "ActiveUserAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "activeuser-appsync-function.zip"]]
       MemorySize: 512
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
@@ -653,7 +654,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "AddPartitionFunctionCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "add-partition-function.zip"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"],!FindInMap ["SourceCodeBucket", "General", "AddPartitionFunctionCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "add-partition-function.zip"]]
       MemorySize: 512
       Handler: index.handler
       Role: !GetAtt AddPartitionFunctionRole.Arn
@@ -995,7 +996,7 @@ Resources:
     DependsOn: GraphQLApi
     Properties:
       ApiId: !GetAtt GraphQLApi.ApiId
-      DefinitionS3Location: !Join ["",["s3://",!Join ["/", [!Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]],!Join ["/", [!FindInMap ["SourceCodeBucket", "General", "RecentVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "appsync_schema.graphql"]]]]]]
+      DefinitionS3Location: !Join ["",["s3://",!Join ["/", [!Join ["-", [!FindInMap ["SourceCodeBucket", "General", "S3Bucket"], !Ref "AWS::Region"]],!Join ["/", [!FindInMap ["SourceCodeBucket", "General", "S3Prefix"], !FindInMap ["SourceCodeBucket", "General", "RecentVideoViewAppSyncCodePrefix"], !FindInMap ["SourceCodeBucket", "General", "Version"], "appsync_schema.graphql"]]]]]]
 
   ApiKey:
     Type: AWS::AppSync::ApiKey
