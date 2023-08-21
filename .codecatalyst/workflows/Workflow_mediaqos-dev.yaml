@@ -29,6 +29,7 @@ Actions:
         - Run: sed -e 's/^bucket.*$/bucket=acousins-mediaqosdev/g' -e 's/^regions.*$/regions = us-west-2/g' -e 's/^version.*$/version=v1.99.4/g' -e 's/docker run -it/docker run/g' Makefile.sample > Makefile
         - Run: make image
         - Run: make build
+        - Run: make release
     Compute:
       Type: EC2
       Fleet: Linux.x86-64.Large
