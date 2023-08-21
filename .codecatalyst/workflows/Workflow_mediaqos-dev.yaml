@@ -25,11 +25,9 @@ Actions:
     Configuration:
       # Required - Steps are sequential instructions that run shell commands
       Steps:
-        - Run: echo "Hello, World!"
-        - Run: echo "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" >> report.xml
-        - Run: echo "<testsuite tests=\"1\" name=\"TestAgentJunit\" >" >> report.xml
-        - Run: echo "<testcase classname=\"TestAgentJunit\" name=\"Dummy
-            Test\"/></testsuite>" >> report.xml
+        - Run: sed -e 's/^bucket.*$/bucket=acousins-mediaqosdev/g' -e 's/^regions.*$/regions = us-west-2/g' -e 's/^version.*$/version=v1.99.4/g' Makefile.sample > Makefile
+        - Run: make image
+        - Run: make build
     Compute:
       Type: EC2
       Fleet: Linux.x86-64.Large
