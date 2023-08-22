@@ -26,7 +26,7 @@ Actions:
         - Run: aws sts get-caller-identity
         - Run: npm install yarn -g
         - Run: yum install zip -y
-        - Run: sed -e 's/^bucket.*$/bucket=acousins-mediaqosdev/g' -e 's/^regions.*$/regions = us-west-2/g' -e 's/^version.*$/version=v1.99.4/g' -e 's/docker run -it/docker run/g' -e 's/--profile \$(profile)//g' Makefile.sample > Makefile
+        - Run: sed -e 's/^bucket.*$/bucket=acousins-mediaqosdev/g' -e 's/^regions.*$/regions = us-west-2/g' -e 's/^version.*$/version=${WorkflowSource.BranchName}/g' -e 's/docker run -it/docker run/g' -e 's/--profile \$(profile)//g' Makefile.sample > Makefile
         - Run: make image
         - Run: make build
         - Run: make release
