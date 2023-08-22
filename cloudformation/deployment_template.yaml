@@ -703,7 +703,7 @@ Resources:
         Status: Enabled
       OwnershipControls:
         Rules:
-          - ObjectOwnership: BucketOwnerEnforced
+          - ObjectOwnership: BucketOwnerPreferred
       NotificationConfiguration:
         LambdaConfigurations:
           - Function: !GetAtt CloudFrontLogProcessorFunction.Arn
