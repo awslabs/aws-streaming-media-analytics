@@ -4,8 +4,6 @@ SchemaVersion: "1.0"
 # Optional - Set automatic triggers.
 Triggers:
   - Type: PUSH
-    Branches:
-      - master
 Actions:
   Build_31:
     # Identifies the action. Do not modify this value.
