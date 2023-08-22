@@ -701,6 +701,9 @@ Resources:
       BucketName: !Sub ${AWS::StackName}-logs-${AWS::AccountId}-${AWS::Region}
       VersioningConfiguration:
         Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
       NotificationConfiguration:
         LambdaConfigurations:
           - Function: !GetAtt CloudFrontLogProcessorFunction.Arn
