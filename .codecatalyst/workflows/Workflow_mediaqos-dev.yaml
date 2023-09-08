@@ -26,7 +26,7 @@ Actions:
         - Run: aws sts get-caller-identity
         - Run: npm install yarn -g
         - Run: yum install zip -y
-        - Run: sed -e 's/^bucket.*$/bucket=acousins-mediaqosdev/g' -e 's/^regions.*$/regions = us-west-2/g' -e 's/^version.*$/version=${WorkflowSource.BranchName}/g' -e 's/docker run -it/docker run/g' -e 's/--profile \$(profile)//g' Makefile.sample > Makefile
+        - Run: sed -e 's/^bucket.*$/bucket=${Secrets.s3bucket_prefix}/g' -e 's/^regions.*$/regions = ${Secrets.awsregion}/g' -e 's/^version.*$/version=${WorkflowSource.BranchName}/g' -e 's/docker run -it/docker run/g' -e 's/--profile \$(profile)//g' Makefile.sample > Makefile
         - Run: make image
         - Run: make build
         - Run: make release
