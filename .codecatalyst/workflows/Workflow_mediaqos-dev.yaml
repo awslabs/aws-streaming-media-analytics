@@ -13,6 +13,9 @@ Actions:
       # Optional
       Sources:
         - WorkflowSource # This specifies that the action requires this Workflow as a source
+      Variables:
+        - Name: testvar
+          Value: ${Secrets.TEST}
     Outputs:
       # Optional; Automatically discover reports for popular test frameworks
       AutoDiscoverReports:
@@ -24,7 +27,7 @@ Actions:
       # Required - Steps are sequential instructions that run shell commands
       Steps:
         - Run: aws sts get-caller-identity
-        - Run: echo ${Secrets.TEST}
+        - Run: echo $testvar
         - Run: npm install yarn -g
         - Run: yum install zip -y
         - Run: sed -e 's/^bucket.*$/bucket=${Secrets.s3bucket_prefix}/g' -e 's/^regions.*$/regions = ${Secrets.awsregion}/g' -e 's/^version.*$/version=${WorkflowSource.BranchName}/g' -e 's/docker run -it/docker run/g' -e 's/--profile \$(profile)//g' Makefile.sample > Makefile
