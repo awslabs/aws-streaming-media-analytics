@@ -15,7 +15,7 @@ Actions:
         - WorkflowSource # This specifies that the action requires this Workflow as a source
       Variables:
         - Name: testvar
-          Value: ${Secrets.TEST}
+          Value: test123
     Outputs:
       # Optional; Automatically discover reports for popular test frameworks
       AutoDiscoverReports:
