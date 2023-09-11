@@ -1,0 +1,40 @@
+Name: Workflow_58cd
+SchemaVersion: "1.0"
+
+# Optional - Set automatic triggers.
+Triggers:
+  - Type: PUSH
+Actions:
+  Build_31:
+    # Identifies the action. Do not modify this value.
+    Identifier: aws/build@v1.0.0
+    # Specifies the source and/or artifacts to pass to the action as input.
+    Inputs:
+      # Optional
+      Sources:
+        - WorkflowSource # This specifies that the action requires this Workflow as a source
+    Outputs:
+      # Optional; Automatically discover reports for popular test frameworks
+      AutoDiscoverReports:
+        Enabled: true
+        # Use as prefix for the report files
+        ReportNamePrefix: rpt
+    # Defines the action's properties.
+    Configuration:
+      # Required - Steps are sequential instructions that run shell commands
+      Steps:
+        - Run: aws sts get-caller-identity
+        - Run: npm install yarn -g
+        - Run: yum install zip -y
+        - Run: sed -e "s/^bucket.*$/bucket=${Secrets.s3bucket_prefix}/g" -e "s/^regions.*$/regions = ${Secrets.awsregion}/g" -e "s/^version.*$/version=${WorkflowSource.BranchName}/g" -e "s/docker run -it/docker run/g" -e "s/--profile \$(profile)//g" Makefile.sample > Makefile
+        - Run: make image
+        - Run: make build
+        - Run: make release
+    Compute:
+      Type: EC2
+      Fleet: Linux.x86-64.Large
+    Environment:
+      Connections:
+        - Role: CodeCatalystWorkflowDevelopmentRole-streaminganalytics
+          Name: "525123328020"
+      Name: mediaqos-dev
