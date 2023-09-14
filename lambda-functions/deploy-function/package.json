@@ -4,6 +4,7 @@
   "main": "index.js",
   "dependencies": {
     "adm-zip": "^0.4.16",
+    "aws-sdk": "^2.1456.0",
     "generate-password": "^1.6.1",
     "mime": "^2.5.2"
   },
